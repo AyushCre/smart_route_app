@@ -6,10 +6,14 @@ export function useWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-
     try {
+      // Use the same host and protocol as the current page
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host; // This includes both hostname and port
+      const wsUrl = `${protocol}//${host}/ws`;
+
+      console.log("Attempting WebSocket connection to:", wsUrl);
+      
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -46,7 +50,7 @@ export function useWebSocket() {
     }
 
     return () => {
-      if (wsRef.current) {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close();
       }
     };
