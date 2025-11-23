@@ -17,6 +17,27 @@ The application enables:
 
 Preferred communication style: Simple, everyday language.
 
+## Driver View & GPS Integration
+
+The system includes a mobile-friendly **Driver View** page where drivers can enable GPS tracking:
+
+- **Route**: `/driver` (mobile-optimized)
+- **Features**:
+  - Real phone GPS integration using Geolocation API
+  - Live GPS coordinate display (latitude, longitude)
+  - Automatic location updates sent to dashboard
+  - Route completion tracking
+  - Vehicle status monitoring (fuel, speed, etc.)
+  
+**How to Test on Real Phone**:
+1. Open Driver View URL on your phone: `https://your-app.replit.dev/driver`
+2. Grant location permission (uses real phone GPS)
+3. Click "Start Driving" to begin tracking
+4. Go to dashboard (`/map`) on desktop to see live location updates
+5. Driver location appears as blue truck icon and updates every 3 seconds
+
+See `GPS_DRIVER_SETUP.md` for complete setup guide and troubleshooting.
+
 ## System Architecture
 
 ### Frontend Architecture

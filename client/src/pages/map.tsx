@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Layers, Navigation, Play } from "lucide-react";
+import { Maximize2, Layers, Navigation, Play, ZoomIn } from "lucide-react";
 import type { Vehicle, Delivery, Route } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
@@ -38,17 +38,43 @@ export default function MapPage() {
   const [mapCenter] = useState<[number, number]>([22.2, 84.8]); // Rourkela, Odisha
   const { toast } = useToast();
 
-  const { data: vehicles, refetch: refetchVehicles } = useQuery<Vehicle[]>({
+  const { data: vehicles = [], refetch: refetchVehicles } = useQuery<Vehicle[]>({
     queryKey: ["/api/vehicles"],
+    refetchInterval: 3000, // Real-time refresh every 3 seconds
   });
 
-  const { data: deliveries, refetch: refetchDeliveries } = useQuery<Delivery[]>({
+  const { data: deliveries = [], refetch: refetchDeliveries } = useQuery<Delivery[]>({
     queryKey: ["/api/deliveries"],
+    refetchInterval: 5000, // Refresh every 5 seconds
   });
 
-  const { data: routes, refetch: refetchRoutes } = useQuery<Route[]>({
+  const { data: routes = [], refetch: refetchRoutes } = useQuery<Route[]>({
     queryKey: ["/api/routes"],
+    refetchInterval: 5000,
   });
+
+  // Fit map to show all markers
+  useEffect(() => {
+    if (!mapRef.current || (vehicles.length === 0 && deliveries.length === 0)) return;
+
+    const bounds = L.latLngBounds([]);
+
+    // Add vehicle positions to bounds
+    vehicles.forEach((vehicle) => {
+      bounds.extend([vehicle.latitude, vehicle.longitude]);
+    });
+
+    // Add delivery positions to bounds
+    deliveries.forEach((delivery) => {
+      bounds.extend([delivery.pickupLat, delivery.pickupLng]);
+      bounds.extend([delivery.deliveryLat, delivery.deliveryLng]);
+    });
+
+    // Fit the map to the bounds with padding
+    if (bounds.isValid()) {
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [vehicles, deliveries]);
 
   const optimizeMutation = useMutation({
     mutationFn: async () => {
@@ -59,9 +85,12 @@ export default function MapPage() {
         title: "Success",
         description: `${data.deliveriesAssigned} deliveries assigned to ${data.routes.length} routes!`,
       });
-      refetchRoutes();
-      refetchVehicles();
-      refetchDeliveries();
+      // Refresh all data immediately after optimization
+      setTimeout(() => {
+        refetchRoutes();
+        refetchVehicles();
+        refetchDeliveries();
+      }, 500);
     },
     onError: (error: any) => {
       toast({
@@ -113,14 +142,29 @@ export default function MapPage() {
             <Play className="h-4 w-4 mr-2" />
             {optimizeMutation.isPending ? "Optimizing..." : "Optimize Routes"}
           </Button>
-          <Button variant="outline" size="sm" data-testid="button-layers" onClick={() => {
-            const mapElement = document.querySelector('.leaflet-container');
-            if (mapElement) {
-              mapElement.dispatchEvent(new CustomEvent('toggleLayers'));
-            }
-          }}>
-            <Layers className="h-4 w-4 mr-2" />
-            Layers
+          <Button 
+            variant="outline" 
+            size="sm" 
+            data-testid="button-fit-bounds"
+            onClick={() => {
+              if (!mapRef.current || (vehicles.length === 0 && deliveries.length === 0)) return;
+              
+              const bounds = L.latLngBounds([]);
+              vehicles.forEach((vehicle) => {
+                bounds.extend([vehicle.latitude, vehicle.longitude]);
+              });
+              deliveries.forEach((delivery) => {
+                bounds.extend([delivery.pickupLat, delivery.pickupLng]);
+                bounds.extend([delivery.deliveryLat, delivery.deliveryLng]);
+              });
+              
+              if (bounds.isValid()) {
+                mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+              }
+            }}
+          >
+            <ZoomIn className="h-4 w-4 mr-2" />
+            Fit All
           </Button>
           <Button variant="outline" size="sm" data-testid="button-fullscreen" onClick={() => {
             const mapContainer = document.querySelector('.leaflet-container')?.parentElement;
