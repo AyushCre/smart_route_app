@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from "react-leaflet";
 import L from "leaflet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Layers, Navigation } from "lucide-react";
+import { Maximize2, Layers, Navigation, Play } from "lucide-react";
 import type { Vehicle, Delivery, Route } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import "leaflet/dist/leaflet.css";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -33,17 +36,40 @@ const deliveryIcon = new L.Icon({
 export default function MapPage() {
   const mapRef = useRef<L.Map>(null);
   const [mapCenter] = useState<[number, number]>([37.7749, -122.4194]);
+  const { toast } = useToast();
 
-  const { data: vehicles } = useQuery<Vehicle[]>({
+  const { data: vehicles, refetch: refetchVehicles } = useQuery<Vehicle[]>({
     queryKey: ["/api/vehicles"],
   });
 
-  const { data: deliveries } = useQuery<Delivery[]>({
-    queryKey: ["/api/deliveries", "active"],
+  const { data: deliveries, refetch: refetchDeliveries } = useQuery<Delivery[]>({
+    queryKey: ["/api/deliveries"],
   });
 
-  const { data: routes } = useQuery<Route[]>({
-    queryKey: ["/api/routes", "active"],
+  const { data: routes, refetch: refetchRoutes } = useQuery<Route[]>({
+    queryKey: ["/api/routes"],
+  });
+
+  const optimizeMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/routes/optimize-all", {});
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success",
+        description: `${data.deliveriesAssigned} deliveries assigned to ${data.routes.length} routes!`,
+      });
+      refetchRoutes();
+      refetchVehicles();
+      refetchDeliveries();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to optimize routes",
+        variant: "destructive",
+      });
+    },
   });
 
   const getStatusColor = (status: string) => {
@@ -78,6 +104,15 @@ export default function MapPage() {
             </span>
             Live
           </Badge>
+          <Button 
+            size="sm" 
+            data-testid="button-optimize-routes"
+            onClick={() => optimizeMutation.mutate()}
+            disabled={optimizeMutation.isPending}
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {optimizeMutation.isPending ? "Optimizing..." : "Optimize Routes"}
+          </Button>
           <Button variant="outline" size="sm" data-testid="button-layers" onClick={() => {
             const mapElement = document.querySelector('.leaflet-container');
             if (mapElement) {
@@ -152,31 +187,55 @@ export default function MapPage() {
             </Marker>
           ))}
 
-          {deliveries?.map((delivery) => (
-            <Marker
-              key={`delivery-${delivery.id}`}
-              position={[delivery.deliveryLat, delivery.deliveryLng]}
-              icon={deliveryIcon}
-            >
-              <Popup>
-                <Card className="border-0 shadow-none">
-                  <CardContent className="p-3 space-y-2">
-                    <div>
-                      <p className="font-medium text-sm">{delivery.orderId}</p>
-                      <p className="text-xs text-muted-foreground">{delivery.customerName}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {delivery.status}
-                    </Badge>
-                    <div className="text-xs">
-                      <p className="text-muted-foreground">Delivery Address</p>
-                      <p className="text-xs">{delivery.deliveryAddress}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Popup>
-            </Marker>
-          ))}
+          {deliveries?.map((delivery) => {
+            // Show both pickup and delivery points
+            return (
+              <div key={delivery.id}>
+                {/* Pickup point */}
+                <Marker
+                  position={[delivery.pickupLat, delivery.pickupLng]}
+                  icon={new L.Icon({
+                    iconUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2308a16e'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z'/%3E%3C/svg%3E",
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 24],
+                    popupAnchor: [0, -24],
+                  })}
+                >
+                  <Popup>
+                    <Card className="border-0 shadow-none">
+                      <CardContent className="p-2 space-y-1">
+                        <p className="text-xs font-medium">Pickup</p>
+                        <p className="text-xs text-muted-foreground">{delivery.pickupAddress}</p>
+                      </CardContent>
+                    </Card>
+                  </Popup>
+                </Marker>
+                {/* Delivery point */}
+                <Marker
+                  position={[delivery.deliveryLat, delivery.deliveryLng]}
+                  icon={deliveryIcon}
+                >
+                  <Popup>
+                    <Card className="border-0 shadow-none">
+                      <CardContent className="p-3 space-y-2">
+                        <div>
+                          <p className="font-medium text-sm">{delivery.orderId}</p>
+                          <p className="text-xs text-muted-foreground">{delivery.customerName}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {delivery.status}
+                        </Badge>
+                        <div className="text-xs">
+                          <p className="text-muted-foreground">Delivery Address</p>
+                          <p className="text-xs">{delivery.deliveryAddress}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Popup>
+                </Marker>
+              </div>
+            );
+          })}
 
           {routes?.map((route) => {
             try {
@@ -212,8 +271,12 @@ export default function MapPage() {
                   <span>Deliveries ({deliveries?.length ?? 0})</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 bg-green-600 rounded-sm" />
+                  <span>Pickups ({deliveries?.length ?? 0})</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <div className="h-0.5 w-4 bg-blue-500" />
-                  <span>Routes ({routes?.length ?? 0})</span>
+                  <span>Routes ({routes?.filter(r => r.status === "active" || r.status === "completed").length ?? 0})</span>
                 </div>
               </div>
             </CardContent>

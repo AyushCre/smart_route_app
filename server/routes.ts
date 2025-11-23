@@ -268,6 +268,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auto-optimize pending deliveries
+  app.post("/api/routes/optimize-all", async (req, res) => {
+    try {
+      const deliveries = await storage.getDeliveries();
+      const vehicles = await storage.getVehicles();
+      const pendingDeliveries = deliveries.filter((d) => d.status === "pending");
+
+      if (pendingDeliveries.length === 0) {
+        return res.json({ message: "No pending deliveries", routes: [] });
+      }
+
+      const createdRoutes = [];
+
+      // Simple round-robin assignment: assign pending deliveries to vehicles
+      for (let i = 0; i < vehicles.length && i < pendingDeliveries.length; i++) {
+        const vehicle = vehicles[i];
+        const batchSize = Math.ceil(pendingDeliveries.length / vehicles.length);
+        const start = i * batchSize;
+        const end = Math.min(start + batchSize, pendingDeliveries.length);
+        const assignedDeliveries = pendingDeliveries.slice(start, end);
+
+        if (assignedDeliveries.length === 0) continue;
+
+        // Build waypoints: start from vehicle location, then all delivery points
+        const waypoints: Coordinate[] = [
+          {
+            lat: vehicle.latitude,
+            lng: vehicle.longitude,
+            address: `Vehicle Start (${vehicle.vehicleNumber})`,
+          },
+          ...assignedDeliveries.map((d) => ({
+            lat: d.deliveryLat,
+            lng: d.deliveryLng,
+            address: d.deliveryAddress,
+          })),
+        ];
+
+        // Optimize the route
+        const optimization = optimizeRoute(waypoints, "dijkstra");
+
+        // Create the route
+        const route = await storage.createRoute({
+          name: `Route-${vehicle.vehicleNumber}-${Date.now()}`,
+          vehicleId: vehicle.id,
+          algorithm: "dijkstra",
+          status: "active",
+          totalDistance: optimization.totalDistance,
+          estimatedDuration: optimization.estimatedDuration,
+          estimatedCost: optimization.totalDistance * 0.5, // $0.50 per km
+          waypoints: JSON.stringify(waypoints),
+          pathCoordinates: JSON.stringify(optimization.coordinates),
+        });
+
+        // Update deliveries with route assignment
+        for (const delivery of assignedDeliveries) {
+          await storage.updateDelivery(delivery.id, {
+            status: "in-transit",
+            vehicleId: vehicle.id,
+            routeId: route.id,
+          });
+        }
+
+        // Update vehicle status
+        await storage.updateVehicle(vehicle.id, {
+          status: "in-transit",
+          currentRouteId: route.id,
+          routeCompletion: 0,
+        });
+
+        createdRoutes.push(route);
+      }
+
+      res.json({
+        message: "Routes optimized successfully",
+        routes: createdRoutes,
+        deliveriesAssigned: pendingDeliveries.length,
+      });
+    } catch (error: any) {
+      console.error("Route optimization error:", error);
+      res.status(500).json({ error: "Failed to optimize routes" });
+    }
+  });
+
   app.get("/api/alerts", async (_req, res) => {
     try {
       const alerts = await storage.getAlerts();
@@ -346,6 +429,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
+  // Track vehicle progress along routes
+  const vehicleProgress: Map<string, number> = new Map();
+
   wss.on("connection", (ws: WebSocket) => {
     console.log("WebSocket client connected");
 
@@ -353,32 +439,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vehicles = await storage.getVehicles();
       
       for (const vehicle of vehicles) {
-        if (vehicle.status === "in-transit") {
-          const latChange = (Math.random() - 0.5) * 0.001;
-          const lngChange = (Math.random() - 0.5) * 0.001;
-          const speedChange = (Math.random() - 0.5) * 5;
-          
-          await storage.updateVehicle(vehicle.id, {
-            latitude: vehicle.latitude + latChange,
-            longitude: vehicle.longitude + lngChange,
-            speed: Math.max(0, Math.min(80, vehicle.speed + speedChange)),
-            fuelLevel: Math.max(0, vehicle.fuelLevel - Math.random() * 0.5),
-          });
+        if (vehicle.status === "in-transit" && vehicle.currentRouteId) {
+          const route = await storage.getRoute(vehicle.currentRouteId);
+          if (!route) continue;
 
-          const updatedVehicle = await storage.getVehicle(vehicle.id);
-          if (updatedVehicle && ws.readyState === WebSocket.OPEN) {
-            ws.send(
-              JSON.stringify({
-                type: "vehicle_update",
-                data: updatedVehicle,
-              })
-            );
+          try {
+            const pathCoordinates = JSON.parse(route.pathCoordinates) as [number, number][];
+            if (pathCoordinates.length < 2) continue;
+
+            // Get current progress (0-1)
+            let progress = vehicleProgress.get(vehicle.id) || 0;
+            const stepSize = 0.05; // Move 5% along the route per update
+            progress = Math.min(1, progress + stepSize);
+            vehicleProgress.set(vehicle.id, progress);
+
+            // Calculate current position along path using linear interpolation
+            const totalPoints = pathCoordinates.length;
+            const currentSegmentIndex = Math.floor(progress * (totalPoints - 1));
+            const nextSegmentIndex = Math.min(currentSegmentIndex + 1, totalPoints - 1);
+            const segmentProgress = (progress * (totalPoints - 1)) - currentSegmentIndex;
+
+            const [currentLat, currentLng] = pathCoordinates[currentSegmentIndex];
+            const [nextLat, nextLng] = pathCoordinates[nextSegmentIndex];
+
+            const newLat = currentLat + (nextLat - currentLat) * segmentProgress;
+            const newLng = currentLng + (nextLng - currentLng) * segmentProgress;
+
+            // Calculate speed based on progress
+            const speed = progress < 0.9 ? 45 : 0;
+            const routeCompletion = progress * 100;
+
+            // Mark route/deliveries as completed when done
+            let newStatus = "in-transit";
+            if (progress >= 1) {
+              newStatus = "idle";
+              vehicleProgress.delete(vehicle.id);
+              
+              // Update route status
+              await storage.updateRoute(vehicle.currentRouteId, { status: "completed" });
+              
+              // Update deliveries as completed
+              const deliveries = await storage.getDeliveries();
+              for (const delivery of deliveries) {
+                if (delivery.routeId === vehicle.currentRouteId) {
+                  await storage.updateDelivery(delivery.id, { status: "completed" });
+                }
+              }
+            }
+
+            await storage.updateVehicle(vehicle.id, {
+              latitude: newLat,
+              longitude: newLng,
+              speed: speed,
+              status: newStatus,
+              routeCompletion: routeCompletion,
+              fuelLevel: Math.max(0, vehicle.fuelLevel - Math.random() * 0.3),
+            });
+
+            const updatedVehicle = await storage.getVehicle(vehicle.id);
+            if (updatedVehicle && ws.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: "vehicle_update",
+                  data: updatedVehicle,
+                })
+              );
+            }
+          } catch (err) {
+            console.error("Error updating vehicle position:", err);
           }
         }
       }
     };
 
-    const updateInterval = setInterval(sendVehicleUpdates, 5000);
+    const updateInterval = setInterval(sendVehicleUpdates, 3000);
 
     ws.on("close", () => {
       console.log("WebSocket client disconnected");
