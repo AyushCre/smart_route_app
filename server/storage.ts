@@ -12,8 +12,16 @@ import {
   type IotSensorData,
   type InsertIotSensorData,
   type DashboardMetrics,
+  users,
+  vehicles,
+  deliveries,
+  routes,
+  alerts,
+  iotSensorData,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { drizzle } from "drizzle-orm/neon-http";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -45,6 +53,225 @@ export interface IStorage {
   createIotSensorData(data: InsertIotSensorData): Promise<IotSensorData>;
   
   getDashboardMetrics(): Promise<DashboardMetrics>;
+}
+
+export class DbStorage implements IStorage {
+  constructor(private db: any) {}
+
+  async seedIfEmpty(): Promise<void> {
+    const vehicleCount = await this.db.select().from(vehicles).limit(1);
+    if (vehicleCount.length > 0) return;
+    
+    const memStorage = new MemStorage();
+    const vehicleList = await memStorage.getVehicles();
+    const deliveryList = await memStorage.getDeliveries();
+    const routeList = await memStorage.getRoutes();
+    const alertList = await memStorage.getAlerts();
+    const sensorList = await memStorage.getIotSensorData();
+
+    for (const vehicle of vehicleList) {
+      const { id, lastUpdate, ...insertData } = vehicle;
+      await this.db.insert(vehicles).values({
+        ...insertData,
+        latitude: Math.round(insertData.latitude * 100000) / 100000,
+        longitude: Math.round(insertData.longitude * 100000) / 100000,
+        speed: Math.round(insertData.speed * 100) / 100,
+        fuelLevel: Math.round(insertData.fuelLevel * 100) / 100,
+        temperature: insertData.temperature ? Math.round(insertData.temperature * 100) / 100 : null,
+        routeCompletion: Math.round(insertData.routeCompletion * 100) / 100,
+      });
+    }
+    for (const delivery of deliveryList) {
+      const { id, createdAt, ...insertData } = delivery;
+      await this.db.insert(deliveries).values({
+        ...insertData,
+        pickupLat: Math.round(insertData.pickupLat * 100000) / 100000,
+        pickupLng: Math.round(insertData.pickupLng * 100000) / 100000,
+        deliveryLat: Math.round(insertData.deliveryLat * 100000) / 100000,
+        deliveryLng: Math.round(insertData.deliveryLng * 100000) / 100000,
+        packageWeight: insertData.packageWeight ? Math.round(insertData.packageWeight * 100) / 100 : null,
+      });
+    }
+    for (const route of routeList) {
+      const { id, createdAt, ...insertData } = route;
+      await this.db.insert(routes).values({
+        ...insertData,
+        totalDistance: Math.round(insertData.totalDistance * 100) / 100,
+        estimatedDuration: Math.round(insertData.estimatedDuration),
+        estimatedCost: Math.round(insertData.estimatedCost * 100) / 100,
+        actualCost: insertData.actualCost ? Math.round(insertData.actualCost * 100) / 100 : null,
+      });
+    }
+    for (const alert of alertList) {
+      const { id, createdAt, ...insertData } = alert;
+      await this.db.insert(alerts).values(insertData);
+    }
+    for (const sensor of sensorList) {
+      const { id, timestamp, ...insertData } = sensor;
+      await this.db.insert(iotSensorData).values({
+        ...insertData,
+        latitude: Math.round(insertData.latitude * 100000) / 100000,
+        longitude: Math.round(insertData.longitude * 100000) / 100000,
+        speed: Math.round(insertData.speed * 100) / 100,
+        fuelLevel: Math.round(insertData.fuelLevel * 100) / 100,
+        temperature: insertData.temperature ? Math.round(insertData.temperature * 100) / 100 : null,
+      });
+    }
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await this.db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async getVehicles(): Promise<Vehicle[]> {
+    return this.db.select().from(vehicles);
+  }
+
+  async getVehicle(id: string): Promise<Vehicle | undefined> {
+    const result = await this.db.select().from(vehicles).where(eq(vehicles.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createVehicle(insertVehicle: InsertVehicle): Promise<Vehicle> {
+    const result = await this.db.insert(vehicles).values(insertVehicle).returning();
+    return result[0];
+  }
+
+  async updateVehicle(id: string, update: Partial<Vehicle>): Promise<Vehicle | undefined> {
+    const result = await this.db.update(vehicles).set(update).where(eq(vehicles.id, id)).returning();
+    return result[0];
+  }
+
+  async getDeliveries(): Promise<Delivery[]> {
+    return this.db.select().from(deliveries);
+  }
+
+  async getDelivery(id: string): Promise<Delivery | undefined> {
+    const result = await this.db.select().from(deliveries).where(eq(deliveries.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createDelivery(insertDelivery: InsertDelivery): Promise<Delivery> {
+    const result = await this.db.insert(deliveries).values(insertDelivery).returning();
+    return result[0];
+  }
+
+  async updateDelivery(id: string, update: Partial<Delivery>): Promise<Delivery | undefined> {
+    const result = await this.db.update(deliveries).set(update).where(eq(deliveries.id, id)).returning();
+    return result[0];
+  }
+
+  async getRoutes(): Promise<Route[]> {
+    return this.db.select().from(routes);
+  }
+
+  async getRoute(id: string): Promise<Route | undefined> {
+    const result = await this.db.select().from(routes).where(eq(routes.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createRoute(insertRoute: InsertRoute): Promise<Route> {
+    const result = await this.db.insert(routes).values(insertRoute).returning();
+    return result[0];
+  }
+
+  async updateRoute(id: string, update: Partial<Route>): Promise<Route | undefined> {
+    const result = await this.db.update(routes).set(update).where(eq(routes.id, id)).returning();
+    return result[0];
+  }
+
+  async getAlerts(): Promise<Alert[]> {
+    return this.db.select().from(alerts).orderBy(desc(alerts.createdAt));
+  }
+
+  async getAlert(id: string): Promise<Alert | undefined> {
+    const result = await this.db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createAlert(insertAlert: InsertAlert): Promise<Alert> {
+    const result = await this.db.insert(alerts).values(insertAlert).returning();
+    return result[0];
+  }
+
+  async updateAlert(id: string, update: Partial<Alert>): Promise<Alert | undefined> {
+    const result = await this.db.update(alerts).set(update).where(eq(alerts.id, id)).returning();
+    return result[0];
+  }
+
+  async markAlertAsRead(id: string): Promise<void> {
+    await this.db.update(alerts).set({ isRead: true }).where(eq(alerts.id, id));
+  }
+
+  async getIotSensorData(): Promise<IotSensorData[]> {
+    return this.db.select().from(iotSensorData).orderBy(desc(iotSensorData.timestamp)).limit(100);
+  }
+
+  async createIotSensorData(insertData: InsertIotSensorData): Promise<IotSensorData> {
+    const result = await this.db.insert(iotSensorData).values(insertData).returning();
+    return result[0];
+  }
+
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    const allDeliveries = await this.db.select().from(deliveries);
+    const allVehicles = await this.db.select().from(vehicles);
+    const allAlerts = await this.db.select().from(alerts);
+
+    const activeDeliveries = allDeliveries.filter((d: any) => d.status === "in-transit" || d.status === "pending").length;
+    const completedToday = allDeliveries.filter((d: any) => {
+      const created = new Date(d.createdAt);
+      const now = new Date();
+      return d.status === "delivered" && created.toDateString() === now.toDateString();
+    }).length;
+    const activeVehicles = allVehicles.filter((v: any) => v.status === "in-transit").length;
+
+    const completedDeliveries = allDeliveries.filter((d: any) => d.status === "delivered");
+    const averageDeliveryTime = completedDeliveries.length > 0
+      ? completedDeliveries.reduce((sum: number, d: any) => {
+          const scheduled = new Date(d.scheduledTime).getTime();
+          const actual = new Date(d.actualDeliveryTime).getTime();
+          return sum + (actual - scheduled) / 3600000;
+        }, 0) / completedDeliveries.length
+      : 0;
+
+    const onTimeCount = completedDeliveries.filter((d: any) => {
+      const scheduled = new Date(d.scheduledTime).getTime();
+      const actual = new Date(d.actualDeliveryTime).getTime();
+      return actual <= scheduled;
+    }).length;
+    const onTimePercentage = completedDeliveries.length > 0
+      ? (onTimeCount / completedDeliveries.length) * 100
+      : 0;
+
+    const totalRevenue = allDeliveries.reduce((sum: number, d: any) => sum + (d.actualDeliveryTime ? 25 : 0), 0);
+    const pendingAlerts = allAlerts.filter((a: any) => !a.isRead).length;
+    const activeRoutes = (await this.db.select().from(routes)).filter((r: any) => r.status === "active");
+    const routeEfficiency = activeRoutes.length > 0
+      ? (activeRoutes.reduce((sum: number, r: any) => sum + r.totalDistance, 0) / activeRoutes.length / 50) * 100
+      : 0;
+
+    return {
+      activeDeliveries,
+      completedToday,
+      activeVehicles,
+      averageDeliveryTime,
+      onTimePercentage,
+      totalRevenue,
+      pendingAlerts,
+      routeEfficiency,
+    };
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -497,4 +724,21 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+let storage: IStorage = new MemStorage();
+
+async function initializeStorage(): Promise<IStorage> {
+  if (process.env.DATABASE_URL) {
+    try {
+      const db = drizzle(process.env.DATABASE_URL);
+      storage = new DbStorage(db);
+      await (storage as DbStorage).seedIfEmpty();
+      return storage;
+    } catch (error) {
+      console.error("Failed to initialize database storage, falling back to in-memory:", error);
+      storage = new MemStorage();
+    }
+  }
+  return storage;
+}
+
+export { initializeStorage, storage };

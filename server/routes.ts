@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { storage, initializeStorage } from "./storage";
 import {
   insertVehicleSchema,
   insertDeliverySchema,
@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  await initializeStorage();
   app.get("/api/metrics", async (_req, res) => {
     try {
       const metrics = await storage.getDashboardMetrics();
