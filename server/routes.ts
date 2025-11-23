@@ -403,6 +403,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/alerts/mark-all-read", async (_req, res) => {
+    try {
+      const alerts = await storage.getAlerts();
+      for (const alert of alerts) {
+        if (!alert.isRead) {
+          await storage.markAlertAsRead(alert.id);
+        }
+      }
+      res.json({ success: true, count: alerts.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to mark all alerts as read" });
+    }
+  });
+
+  app.delete("/api/alerts/:id", async (req, res) => {
+    try {
+      const alert = await storage.getAlert(req.params.id);
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      await storage.deleteAlert(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete alert" });
+    }
+  });
+
   app.get("/api/iot/sensors", async (_req, res) => {
     try {
       const sensorData = await storage.getIotSensorData();

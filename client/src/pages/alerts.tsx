@@ -18,8 +18,9 @@ import type { Alert } from "@shared/schema";
 
 export default function AlertsPage() {
   const { toast } = useToast();
-  const { data: alerts, isLoading } = useQuery<Alert[]>({
+  const { data: alerts = [], isLoading, refetch } = useQuery<Alert[]>({
     queryKey: ["/api/alerts"],
+    refetchInterval: 3000, // Real-time refresh every 3 seconds
   });
 
   const dismissMutation = useMutation({
@@ -42,12 +43,29 @@ export default function AlertsPage() {
     },
   });
 
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("PATCH", "/api/alerts/mark-all-read", {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+      toast({
+        title: "Success",
+        description: `${data.count} alerts marked as read.`,
+      });
+      refetch();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to mark alerts as read.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleMarkAllRead = () => {
-    toast({
-      title: "Success",
-      description: "All alerts marked as read.",
-    });
-    queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+    markAllReadMutation.mutate();
   };
 
   const getSeverityIcon = (severity: string) => {
@@ -113,9 +131,14 @@ export default function AlertsPage() {
             Monitor system alerts and delivery status changes
           </p>
         </div>
-        <Button variant="outline" data-testid="button-mark-all-read" onClick={handleMarkAllRead}>
+        <Button 
+          variant="outline" 
+          data-testid="button-mark-all-read" 
+          onClick={handleMarkAllRead}
+          disabled={markAllReadMutation.isPending || alerts.length === 0}
+        >
           <CheckCircle2 className="h-4 w-4 mr-2" />
-          Mark All as Read
+          {markAllReadMutation.isPending ? "Marking..." : "Mark All as Read"}
         </Button>
       </div>
 

@@ -48,6 +48,7 @@ export interface IStorage {
   createAlert(alert: InsertAlert): Promise<Alert>;
   updateAlert(id: string, alert: Partial<Alert>): Promise<Alert | undefined>;
   markAlertAsRead(id: string): Promise<void>;
+  deleteAlert(id: string): Promise<void>;
   
   getIotSensorData(): Promise<IotSensorData[]>;
   createIotSensorData(data: InsertIotSensorData): Promise<IotSensorData>;
@@ -212,6 +213,10 @@ export class DbStorage implements IStorage {
 
   async markAlertAsRead(id: string): Promise<void> {
     await this.db.update(alerts).set({ isRead: true }).where(eq(alerts.id, id));
+  }
+
+  async deleteAlert(id: string): Promise<void> {
+    await this.db.delete(alerts).where(eq(alerts.id, id));
   }
 
   async getIotSensorData(): Promise<IotSensorData[]> {
@@ -484,6 +489,10 @@ export class MemStorage implements IStorage {
       alert.isRead = true;
       this.alerts.set(id, alert);
     }
+  }
+
+  async deleteAlert(id: string): Promise<void> {
+    this.alerts.delete(id);
   }
 
   async getIotSensorData(): Promise<IotSensorData[]> {
