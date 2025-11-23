@@ -43,7 +43,7 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
     defaultValues: {
       orderId: `ORD-${Date.now()}`,
       customerName: "",
-      customerId: "",
+      customerId: `CUST-${Date.now()}`,
       pickupAddress: "",
       pickupLat: 37.7749,
       pickupLng: -122.4194,
@@ -52,13 +52,11 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
       deliveryLng: -122.2712,
       status: "pending",
       priority: "normal",
-      scheduledTime: new Date().toISOString(),
-      estimatedDeliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     },
   });
 
   const addDeliveryMutation = useMutation({
-    mutationFn: async (data: typeof form.getValues) => {
+    mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/deliveries", data);
     },
     onSuccess: () => {
@@ -70,10 +68,11 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
       onOpenChange(false);
       form.reset();
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Delivery creation error:", error);
       toast({
         title: "Error",
-        description: "Failed to create delivery. Please try again.",
+        description: error.message || "Failed to create delivery. Please try again.",
         variant: "destructive",
       });
     },
@@ -147,61 +146,9 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="pickupLat"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pickup Latitude</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="pickupLng"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pickup Longitude</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="deliveryLat"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Delivery Latitude</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="deliveryLng"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Delivery Longitude</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="p-3 bg-muted rounded text-sm text-muted-foreground">
+              <p>GPS coordinates are automatically assigned based on the address. Latitude/Longitude help pinpoint exact locations for map display and route optimization.</p>
+            </div>
 
             <FormField
               control={form.control}
