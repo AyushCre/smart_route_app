@@ -35,7 +35,7 @@ const deliveryIcon = new L.Icon({
 
 export default function MapPage() {
   const mapRef = useRef<L.Map>(null);
-  const [mapCenter] = useState<[number, number]>([37.7749, -122.4194]);
+  const [mapCenter] = useState<[number, number]>([22.2, 84.8]); // Rourkela, Odisha
   const { toast } = useToast();
 
   const { data: vehicles, refetch: refetchVehicles } = useQuery<Vehicle[]>({

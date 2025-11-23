@@ -573,28 +573,32 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    const sanFranciscoCoords = [
-      { lat: 37.7749, lng: -122.4194 },
-      { lat: 37.7849, lng: -122.4094 },
-      { lat: 37.7649, lng: -122.4294 },
-      { lat: 37.7949, lng: -122.3994 },
-      { lat: 37.7549, lng: -122.4394 },
+    // Odisha and nearby regions (Rourkela, Bondamunda, Sambalpur, Bhubaneswar, Cuttack, Dhenkanal, Patna)
+    const odishaCoords = [
+      { lat: 22.2369, lng: 84.8549, city: "Rourkela" }, // Center
+      { lat: 22.1, lng: 84.7, city: "Bondamunda" },
+      { lat: 21.5, lng: 84.0, city: "Sambalpur" },
+      { lat: 20.2, lng: 85.8, city: "Bhubaneswar" },
+      { lat: 20.5, lng: 85.9, city: "Cuttack" },
+      { lat: 20.9, lng: 85.6, city: "Dhenkanal" },
+      { lat: 25.5, lng: 85.1, city: "Patna" },
+      { lat: 22.5, lng: 84.6, city: "Sundargarh" },
     ];
 
     const vehicleIds: string[] = [];
     for (let i = 0; i < 5; i++) {
-      const coord = sanFranciscoCoords[i];
+      const coord = odishaCoords[i];
       const vehicle: Vehicle = {
         id: randomUUID(),
         vehicleNumber: `VH-${1001 + i}`,
-        driverName: ["John Smith", "Maria Garcia", "David Chen", "Sarah Johnson", "Mike Wilson"][i],
+        driverName: ["Raj Kumar", "Priya Singh", "Arjun Patel", "Neha Sharma", "Vikram Das"][i],
         driverId: null,
         status: ["in-transit", "in-transit", "idle", "in-transit", "idle"][i],
-        latitude: coord.lat + (Math.random() - 0.5) * 0.02,
-        longitude: coord.lng + (Math.random() - 0.5) * 0.02,
+        latitude: coord.lat + (Math.random() - 0.5) * 0.1,
+        longitude: coord.lng + (Math.random() - 0.5) * 0.1,
         speed: [45, 38, 0, 52, 0][i],
         fuelLevel: [78, 92, 65, 45, 88][i],
-        temperature: 72 + Math.random() * 10,
+        temperature: 32 + Math.random() * 8,
         currentRouteId: null,
         routeCompletion: [65, 42, 0, 78, 0][i],
         lastUpdate: new Date(),
@@ -603,37 +607,41 @@ export class MemStorage implements IStorage {
       vehicleIds.push(vehicle.id);
     }
 
-    for (let i = 0; i < 8; i++) {
-      const pickupCoord = sanFranciscoCoords[Math.floor(Math.random() * sanFranciscoCoords.length)];
-      const deliveryCoord = sanFranciscoCoords[Math.floor(Math.random() * sanFranciscoCoords.length)];
+    for (let i = 0; i < 12; i++) {
+      const pickupCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
+      const deliveryCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
       
       const delivery: Delivery = {
         id: randomUUID(),
         orderId: `ORD-${10000 + i}`,
-        status: ["pending", "in-transit", "in-transit", "delivered", "in-transit", "pending", "delivered", "delayed"][i],
+        status: ["pending", "in-transit", "in-transit", "delivered", "in-transit", "pending", "delivered", "delayed", "pending", "pending", "in-transit", "pending"][i],
         customerId: randomUUID(),
         customerName: [
-          "Acme Corp",
-          "Tech Solutions Inc",
-          "Global Retail",
-          "Downtown Market",
-          "City Supplies",
-          "Metro Foods",
-          "Urban Logistics",
-          "Pacific Trading",
+          "Odisha Trading Corp",
+          "Rourkela Industries",
+          "Eastern Retail Ltd",
+          "Bhubaneswar Foods",
+          "Cuttack Supplies",
+          "Sambalpur Logistics",
+          "Patna Warehouse",
+          "Dhenkanal Distribution",
+          "Jharkhand Markets",
+          "Steel City Goods",
+          "Eastern Express",
+          "Regional Delivery Co",
         ][i],
-        pickupAddress: `${1000 + i * 100} Market St, San Francisco, CA`,
-        pickupLat: pickupCoord.lat + (Math.random() - 0.5) * 0.01,
-        pickupLng: pickupCoord.lng + (Math.random() - 0.5) * 0.01,
-        deliveryAddress: `${2000 + i * 100} Mission St, San Francisco, CA`,
-        deliveryLat: deliveryCoord.lat + (Math.random() - 0.5) * 0.01,
-        deliveryLng: deliveryCoord.lng + (Math.random() - 0.5) * 0.01,
+        pickupAddress: `${1000 + i * 50} ${pickupCoord.city} Market, Odisha`,
+        pickupLat: pickupCoord.lat + (Math.random() - 0.5) * 0.05,
+        pickupLng: pickupCoord.lng + (Math.random() - 0.5) * 0.05,
+        deliveryAddress: `${2000 + i * 50} ${deliveryCoord.city} Main Road, Odisha`,
+        deliveryLat: deliveryCoord.lat + (Math.random() - 0.5) * 0.05,
+        deliveryLng: deliveryCoord.lng + (Math.random() - 0.5) * 0.05,
         vehicleId: i < 5 ? vehicleIds[i % vehicleIds.length] : null,
         routeId: null,
-        scheduledTime: new Date(Date.now() + (i - 4) * 3600000),
-        estimatedDeliveryTime: new Date(Date.now() + (i - 2) * 3600000),
+        scheduledTime: new Date(Date.now() + (i - 6) * 3600000),
+        estimatedDeliveryTime: new Date(Date.now() + (i - 4) * 3600000),
         actualDeliveryTime: i === 3 || i === 6 ? new Date() : null,
-        priority: ["normal", "high", "normal", "normal", "high", "normal", "low", "normal"][i],
+        priority: ["normal", "high", "normal", "normal", "high", "normal", "low", "normal", "high", "normal", "normal", "normal"][i],
         packageWeight: 5 + Math.random() * 45,
         createdAt: new Date(Date.now() - i * 86400000),
       };
@@ -643,31 +651,31 @@ export class MemStorage implements IStorage {
     for (let i = 0; i < 4; i++) {
       const waypoints = [];
       const pathCoords = [];
-      const numWaypoints = 3 + Math.floor(Math.random() * 3);
+      const numWaypoints = 3 + Math.floor(Math.random() * 4);
       
       for (let j = 0; j < numWaypoints; j++) {
-        const coord = sanFranciscoCoords[j % sanFranciscoCoords.length];
+        const coord = odishaCoords[j % odishaCoords.length];
         waypoints.push({
-          lat: coord.lat + (Math.random() - 0.5) * 0.02,
-          lng: coord.lng + (Math.random() - 0.5) * 0.02,
-          address: `${1000 + j * 200} Street ${j + 1}`,
+          lat: coord.lat + (Math.random() - 0.5) * 0.05,
+          lng: coord.lng + (Math.random() - 0.5) * 0.05,
+          address: `${1000 + j * 200} ${coord.city} Route ${j + 1}`,
         });
         pathCoords.push([
-          coord.lat + (Math.random() - 0.5) * 0.02,
-          coord.lng + (Math.random() - 0.5) * 0.02,
+          coord.lat + (Math.random() - 0.5) * 0.05,
+          coord.lng + (Math.random() - 0.5) * 0.05,
         ]);
       }
 
       const route: Route = {
         id: randomUUID(),
-        name: `Route ${String.fromCharCode(65 + i)}`,
+        name: `Route-${odishaCoords[i % odishaCoords.length].city}-${String.fromCharCode(65 + i)}`,
         vehicleId: i < vehicleIds.length ? vehicleIds[i] : null,
         status: ["active", "active", "planned", "completed"][i],
         algorithm: ["dijkstra", "astar", "dijkstra", "astar"][i],
-        totalDistance: 25 + Math.random() * 30,
-        estimatedDuration: 3600 + Math.random() * 3600,
-        estimatedCost: 150 + Math.random() * 200,
-        actualCost: i === 3 ? 180 + Math.random() * 150 : null,
+        totalDistance: 40 + Math.random() * 60,
+        estimatedDuration: 5400 + Math.random() * 5400,
+        estimatedCost: 200 + Math.random() * 300,
+        actualCost: i === 3 ? 220 + Math.random() * 250 : null,
         waypoints: JSON.stringify(waypoints),
         pathCoordinates: JSON.stringify(pathCoords),
         createdAt: new Date(Date.now() - i * 86400000),
