@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { OptimizeRouteDialog } from "@/components/dialogs/optimize-route-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -15,6 +17,7 @@ import { Route as RouteIcon, Plus, Zap, Navigation, Clock, DollarSign, TrendingU
 import type { Route } from "@shared/schema";
 
 export default function RoutesPage() {
+  const [optimizeOpen, setOptimizeOpen] = useState(false);
   const { data: routes, isLoading } = useQuery<Route[]>({
     queryKey: ["/api/routes"],
   });
@@ -52,10 +55,7 @@ export default function RoutesPage() {
             Optimize delivery routes using advanced algorithms
           </p>
         </div>
-        <Button data-testid="button-optimize-route" onClick={() => {
-          // Route optimization dialog handler would go here
-          window.dispatchEvent(new CustomEvent('openOptimizeDialog'));
-        }}>
+        <Button data-testid="button-optimize-route" onClick={() => setOptimizeOpen(true)}>
           <Zap className="h-4 w-4 mr-2" />
           Optimize New Route
         </Button>
@@ -274,6 +274,7 @@ export default function RoutesPage() {
           </div>
         </CardContent>
       </Card>
+      <OptimizeRouteDialog open={optimizeOpen} onOpenChange={setOptimizeOpen} />
     </div>
   );
 }
