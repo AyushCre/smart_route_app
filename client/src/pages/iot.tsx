@@ -71,7 +71,15 @@ export default function IoTPage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" data-testid="button-export-data">
+          <Button variant="outline" size="sm" data-testid="button-export-data" onClick={() => {
+            const csv = (sensorData || []).map(s => `${s.vehicleId},${s.latitude},${s.longitude},${s.fuelLevel},${s.temperature || 0},${s.speed}`).join("\n");
+            const blob = new Blob([csv || ""], { type: "text/csv" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `iot-sensors-${Date.now()}.csv`;
+            a.click();
+          }}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>

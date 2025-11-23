@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { MetricsCard } from "@/components/metrics-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import {
 import type { DashboardMetrics, Alert, Vehicle } from "@shared/schema";
 
 export default function Dashboard() {
+  const [, setLocation] = useLocation();
   const { data: metrics, isLoading: metricsLoading } = useQuery<DashboardMetrics>({
     queryKey: ["/api/metrics"],
   });
@@ -105,7 +107,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
             <CardTitle className="text-base font-medium">Recent Alerts</CardTitle>
-            <Button variant="ghost" size="sm" data-testid="button-view-all-alerts">
+            <Button variant="ghost" size="sm" data-testid="button-view-all-alerts" onClick={() => setLocation("/alerts")}>
               View All
             </Button>
           </CardHeader>
@@ -161,7 +163,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
             <CardTitle className="text-base font-medium">Active Vehicles</CardTitle>
-            <Button variant="ghost" size="sm" data-testid="button-view-all-vehicles">
+            <Button variant="ghost" size="sm" data-testid="button-view-all-vehicles" onClick={() => setLocation("/vehicles")}>
               View All
             </Button>
           </CardHeader>

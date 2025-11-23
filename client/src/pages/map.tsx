@@ -78,11 +78,21 @@ export default function MapPage() {
             </span>
             Live
           </Badge>
-          <Button variant="outline" size="sm" data-testid="button-layers">
+          <Button variant="outline" size="sm" data-testid="button-layers" onClick={() => {
+            const mapElement = document.querySelector('.leaflet-container');
+            if (mapElement) {
+              mapElement.dispatchEvent(new CustomEvent('toggleLayers'));
+            }
+          }}>
             <Layers className="h-4 w-4 mr-2" />
             Layers
           </Button>
-          <Button variant="outline" size="sm" data-testid="button-fullscreen">
+          <Button variant="outline" size="sm" data-testid="button-fullscreen" onClick={() => {
+            const mapContainer = document.querySelector('.leaflet-container')?.parentElement;
+            if (mapContainer?.requestFullscreen) {
+              mapContainer.requestFullscreen();
+            }
+          }}>
             <Maximize2 className="h-4 w-4" />
           </Button>
         </div>

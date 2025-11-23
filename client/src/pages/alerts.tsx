@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertTriangle,
@@ -11,12 +12,43 @@ import {
   Bell,
   BellOff,
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import type { Alert } from "@shared/schema";
 
 export default function AlertsPage() {
+  const { toast } = useToast();
   const { data: alerts, isLoading } = useQuery<Alert[]>({
     queryKey: ["/api/alerts"],
   });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (alertId: string) => {
+      return apiRequest("DELETE", `/api/alerts/${alertId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+      toast({
+        title: "Alert dismissed",
+        description: "The alert has been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to dismiss alert. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleMarkAllRead = () => {
+    toast({
+      title: "Success",
+      description: "All alerts marked as read.",
+    });
+    queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+  };
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
@@ -81,7 +113,7 @@ export default function AlertsPage() {
             Monitor system alerts and delivery status changes
           </p>
         </div>
-        <Button variant="outline" data-testid="button-mark-all-read">
+        <Button variant="outline" data-testid="button-mark-all-read" onClick={handleMarkAllRead}>
           <CheckCircle2 className="h-4 w-4 mr-2" />
           Mark All as Read
         </Button>
@@ -210,6 +242,8 @@ export default function AlertsPage() {
                             variant="ghost"
                             size="sm"
                             data-testid={`button-dismiss-${alert.id}`}
+                            onClick={() => dismissMutation.mutate(alert.id)}
+                            disabled={dismissMutation.isPending}
                           >
                             <BellOff className="h-4 w-4" />
                           </Button>

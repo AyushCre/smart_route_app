@@ -3,13 +3,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 import { Truck, Fuel, Gauge, MapPin, Activity } from "lucide-react";
 import type { Vehicle } from "@shared/schema";
 
 export default function VehiclesPage() {
+  const { toast } = useToast();
   const { data: vehicles, isLoading } = useQuery<Vehicle[]>({
     queryKey: ["/api/vehicles"],
   });
+
+  const handleAddVehicle = () => {
+    toast({
+      title: "Add Vehicle",
+      description: "Vehicle creation form will be available soon.",
+      variant: "default",
+    });
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -52,7 +62,7 @@ export default function VehiclesPage() {
             Monitor all vehicles and their real-time telemetry
           </p>
         </div>
-        <Button data-testid="button-add-vehicle">
+        <Button data-testid="button-add-vehicle" onClick={handleAddVehicle}>
           <Truck className="h-4 w-4 mr-2" />
           Add Vehicle
         </Button>

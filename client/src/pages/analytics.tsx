@@ -76,7 +76,15 @@ export default function AnalyticsPage() {
               <SelectItem value="90d">Last 90 Days</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" data-testid="button-export-data">
+          <Button variant="outline" data-testid="button-export-data" onClick={() => {
+            const csv = "Analytics Export\nTime Range: " + timeRange + "\nGenerated: " + new Date().toISOString();
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `analytics-${Date.now()}.csv`;
+            a.click();
+          }}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>

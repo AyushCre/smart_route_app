@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -23,12 +24,21 @@ import type { Delivery } from "@shared/schema";
 import { useState } from "react";
 
 export default function DeliveriesPage() {
+  const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: deliveries, isLoading } = useQuery<Delivery[]>({
     queryKey: ["/api/deliveries"],
   });
+
+  const handleNewDelivery = () => {
+    toast({
+      title: "New Delivery",
+      description: "Delivery creation form will be available soon.",
+      variant: "default",
+    });
+  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -76,7 +86,7 @@ export default function DeliveriesPage() {
             Manage and track all delivery orders
           </p>
         </div>
-        <Button data-testid="button-new-delivery">
+        <Button data-testid="button-new-delivery" onClick={handleNewDelivery}>
           <Plus className="h-4 w-4 mr-2" />
           New Delivery
         </Button>

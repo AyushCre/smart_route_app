@@ -52,7 +52,10 @@ export default function RoutesPage() {
             Optimize delivery routes using advanced algorithms
           </p>
         </div>
-        <Button data-testid="button-optimize-route">
+        <Button data-testid="button-optimize-route" onClick={() => {
+          // Route optimization dialog handler would go here
+          window.dispatchEvent(new CustomEvent('openOptimizeDialog'));
+        }}>
           <Zap className="h-4 w-4 mr-2" />
           Optimize New Route
         </Button>
