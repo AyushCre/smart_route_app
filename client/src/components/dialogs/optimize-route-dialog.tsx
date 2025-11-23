@@ -50,12 +50,14 @@ export function OptimizeRouteDialog({ open, onOpenChange }: OptimizeRouteDialogP
     resolver: zodResolver(insertRouteSchema),
     defaultValues: {
       vehicleId: "",
+      name: `Route-${Date.now()}`,
       algorithm: "dijkstra",
-      waypoints: [],
-      estimatedDistance: 0,
+      waypoints: "[]",
+      pathCoordinates: "[]",
+      totalDistance: 0,
       estimatedDuration: 0,
-      fuelCostEstimate: 0,
-      status: "pending",
+      estimatedCost: 0,
+      status: "planned",
     },
   });
 
@@ -92,7 +94,15 @@ export function OptimizeRouteDialog({ open, onOpenChange }: OptimizeRouteDialogP
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data: any) => optimizeMutation.mutate(data))} className="space-y-4">
+          <form onSubmit={form.handleSubmit((data: any) => {
+            // Convert waypoints and pathCoordinates to JSON if they're objects
+            const payload = {
+              ...data,
+              waypoints: typeof data.waypoints === 'string' ? data.waypoints : JSON.stringify(data.waypoints || []),
+              pathCoordinates: typeof data.pathCoordinates === 'string' ? data.pathCoordinates : JSON.stringify(data.pathCoordinates || []),
+            };
+            optimizeMutation.mutate(payload);
+          })} className="space-y-4">
             <FormField
               control={form.control}
               name="vehicleId"

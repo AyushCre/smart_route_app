@@ -29,6 +29,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import { randomUUID } from "crypto";
 
 interface NewDeliveryDialogProps {
   open: boolean;
@@ -40,10 +41,15 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
   const form = useForm({
     resolver: zodResolver(insertDeliverySchema),
     defaultValues: {
-      orderId: "",
+      orderId: `ORD-${Date.now()}`,
       customerName: "",
+      customerId: "",
       pickupAddress: "",
+      pickupLat: 37.7749,
+      pickupLng: -122.4194,
       deliveryAddress: "",
+      deliveryLat: 37.8044,
+      deliveryLng: -122.2712,
       status: "pending",
       priority: "normal",
       scheduledTime: new Date().toISOString(),
@@ -135,6 +141,62 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
                   <FormLabel>Delivery Address</FormLabel>
                   <FormControl>
                     <Input placeholder="456 Customer Ave" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="pickupLat"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pickup Latitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="pickupLng"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pickup Longitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="deliveryLat"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Latitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="deliveryLng"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Longitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
