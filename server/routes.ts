@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage, initializeStorage } from "./storage";
+import { optimizeRoute, type Coordinate } from "./pathfinding";
 import {
   insertVehicleSchema,
   insertDeliverySchema,
@@ -21,9 +22,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/vehicles", async (_req, res) => {
+  app.get("/api/vehicles", async (req, res) => {
     try {
-      const vehicles = await storage.getVehicles();
+      let vehicles = await storage.getVehicles();
+      
+      // Filtering by status
+      if (req.query.status) {
+        vehicles = vehicles.filter(v => v.status === req.query.status);
+      }
+      
+      // Filtering by vehicle number (search)
+      if (req.query.search) {
+        vehicles = vehicles.filter(v => 
+          v.vehicleNumber.toLowerCase().includes((req.query.search as string).toLowerCase())
+        );
+      }
+      
       res.json(vehicles);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch vehicles" });
@@ -79,9 +93,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/deliveries", async (_req, res) => {
+  app.get("/api/deliveries", async (req, res) => {
     try {
-      const deliveries = await storage.getDeliveries();
+      let deliveries = await storage.getDeliveries();
+      
+      // Filtering by status
+      if (req.query.status) {
+        deliveries = deliveries.filter(d => d.status === req.query.status);
+      }
+      
+      // Filtering by priority
+      if (req.query.priority) {
+        deliveries = deliveries.filter(d => d.priority === req.query.priority);
+      }
+      
+      // Filtering by customer name (search)
+      if (req.query.search) {
+        deliveries = deliveries.filter(d => 
+          d.customerName.toLowerCase().includes((req.query.search as string).toLowerCase()) ||
+          d.orderId.toLowerCase().includes((req.query.search as string).toLowerCase())
+        );
+      }
+      
       res.json(deliveries);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch deliveries" });
@@ -137,9 +170,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/routes", async (_req, res) => {
+  app.get("/api/routes", async (req, res) => {
     try {
-      const routes = await storage.getRoutes();
+      let routes = await storage.getRoutes();
+      
+      // Filtering by status
+      if (req.query.status) {
+        routes = routes.filter(r => r.status === req.query.status);
+      }
+      
+      // Filtering by algorithm
+      if (req.query.algorithm) {
+        routes = routes.filter(r => r.algorithm === req.query.algorithm);
+      }
+      
+      // Filtering by route name (search)
+      if (req.query.search) {
+        routes = routes.filter(r => 
+          r.name.toLowerCase().includes((req.query.search as string).toLowerCase())
+        );
+      }
+      
       res.json(routes);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch routes" });
@@ -190,6 +241,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(route);
     } catch (error) {
       res.status(500).json({ error: "Failed to update route" });
+    }
+  });
+
+  app.post("/api/routes/optimize", async (req, res) => {
+    try {
+      const { waypoints, algorithm } = req.body;
+      if (!waypoints || !Array.isArray(waypoints)) {
+        return res.status(400).json({ error: "Waypoints array is required" });
+      }
+      
+      const coordinates: Coordinate[] = waypoints.map((w: any) => ({
+        lat: w.lat || w.latitude,
+        lng: w.lng || w.longitude,
+        address: w.address,
+      }));
+
+      const optimization = optimizeRoute(
+        coordinates,
+        (algorithm || "dijkstra") as "dijkstra" | "astar"
+      );
+
+      res.json(optimization);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to optimize route" });
     }
   });
 
