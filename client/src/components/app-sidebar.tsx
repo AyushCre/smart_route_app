@@ -20,6 +20,7 @@ import {
   BarChart3,
   Bell,
   Radio,
+  Navigation,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ const mainNavItems = [
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Alerts", url: "/alerts", icon: Bell },
   { title: "IoT Sensors", url: "/iot", icon: Radio },
+  { title: "Driver View", url: "/driver", icon: Navigation },
 ];
 
 export function AppSidebar() {

@@ -16,6 +16,7 @@ import RoutesPage from "@/pages/routes";
 import AnalyticsPage from "@/pages/analytics";
 import AlertsPage from "@/pages/alerts";
 import IoTPage from "@/pages/iot";
+import DriverViewPage from "@/pages/driver-view";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/alerts" component={AlertsPage} />
       <Route path="/iot" component={IoTPage} />
+      <Route path="/driver" component={DriverViewPage} />
       <Route component={NotFound} />
     </Switch>
   );
