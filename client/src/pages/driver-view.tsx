@@ -4,6 +4,13 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MapPin, Navigation, Phone, AlertCircle, CheckCircle2 } from "lucide-react";
 import { formatIST } from "@/lib/format-time";
 
@@ -34,14 +41,24 @@ export default function DriverView() {
   const [gpsCoords, setGpsCoords] = useState<GpsCoordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [watchId, setWatchId] = useState<number | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
 
-  // Fetch current vehicle (driver's assigned vehicle)
+  // Fetch all vehicles
   const { data: vehicles = [] } = useQuery({
     queryKey: ["/api/vehicles"],
     refetchInterval: 5000,
   });
 
-  const currentVehicle = (vehicles as Vehicle[])?.[0];
+  // Set first vehicle as default if not already selected
+  useEffect(() => {
+    if (vehicles.length > 0 && !selectedVehicleId) {
+      setSelectedVehicleId((vehicles as Vehicle[])[0].id);
+    }
+  }, [vehicles, selectedVehicleId]);
+
+  const currentVehicle = (vehicles as Vehicle[])?.find(
+    (v) => v.id === selectedVehicleId
+  );
 
   // Mutation to update vehicle location from GPS
   const updateLocationMutation = useMutation({
@@ -152,6 +169,25 @@ export default function DriverView() {
         <h1 className="text-3xl font-bold">Driver View</h1>
         <p className="text-muted-foreground">Real-time GPS tracking for deliveries</p>
       </div>
+
+      {/* Vehicle Selector */}
+      {vehicles && vehicles.length > 0 && (
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium">Select Vehicle:</label>
+          <Select value={selectedVehicleId || ""} onValueChange={setSelectedVehicleId}>
+            <SelectTrigger className="w-full" data-testid="select-driver-vehicle">
+              <SelectValue placeholder="Choose a vehicle" />
+            </SelectTrigger>
+            <SelectContent>
+              {(vehicles as Vehicle[]).map((vehicle) => (
+                <SelectItem key={vehicle.id} value={vehicle.id}>
+                  {vehicle.vehicleNumber} - {vehicle.driverName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Vehicle Info */}
       <Card>

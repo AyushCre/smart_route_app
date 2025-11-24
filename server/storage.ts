@@ -30,6 +30,7 @@ export interface IStorage {
   getVehicle(id: string): Promise<Vehicle | undefined>;
   createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
   updateVehicle(id: string, vehicle: Partial<Vehicle>): Promise<Vehicle | undefined>;
+  deleteVehicle(id: string): Promise<void>;
   
   getDeliveries(): Promise<Delivery[]>;
   getDelivery(id: string): Promise<Delivery | undefined>;
@@ -158,6 +159,10 @@ export class DbStorage implements IStorage {
       { returnDocument: "after" }
     );
     return result.value;
+  }
+
+  async deleteVehicle(id: string): Promise<void> {
+    await this.vehiclesCollection.deleteOne({ _id: id });
   }
 
   async getDeliveries(): Promise<Delivery[]> {
@@ -433,7 +438,10 @@ export class MemStorage implements IStorage {
   }
 
   async createVehicle(insertVehicle: InsertVehicle): Promise<Vehicle> {
-    const vehicle = { _id: randomUUID(), ...insertVehicle, lastUpdate: new Date() };
+    const randomSpeed = insertVehicle.status === "in-transit" 
+      ? 20 + Math.random() * 60 
+      : Math.random() * 20;
+    const vehicle = { _id: randomUUID(), ...insertVehicle, speed: randomSpeed, lastUpdate: new Date() };
     this.vehicles.push(vehicle);
     return vehicle;
   }
@@ -443,6 +451,10 @@ export class MemStorage implements IStorage {
     if (!vehicle) return undefined;
     Object.assign(vehicle, { ...update, lastUpdate: new Date() });
     return vehicle;
+  }
+
+  async deleteVehicle(id: string): Promise<void> {
+    this.vehicles = this.vehicles.filter(v => v._id !== id);
   }
 
   async getDeliveries(): Promise<Delivery[]> {

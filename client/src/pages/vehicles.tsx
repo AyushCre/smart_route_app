@@ -1,18 +1,34 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AddVehicleDialog } from "@/components/dialogs/add-vehicle-dialog";
-import { Truck, Fuel, Gauge, MapPin, Activity } from "lucide-react";
+import { Truck, Fuel, Gauge, MapPin, Activity, Trash2 } from "lucide-react";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Vehicle } from "@shared/schema";
 import { formatIST } from "@/lib/format-time";
 
 export default function VehiclesPage() {
   const [addVehicleOpen, setAddVehicleOpen] = useState(false);
+  const { toast } = useToast();
   const { data: vehicles, isLoading } = useQuery<Vehicle[]>({
     queryKey: ["/api/vehicles"],
+  });
+
+  const deleteVehicleMutation = useMutation({
+    mutationFn: async (vehicleId: string) => {
+      return apiRequest("DELETE", `/api/vehicles/${vehicleId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      toast({ title: "Vehicle deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete vehicle", variant: "destructive" });
+    },
   });
 
   const getStatusColor = (status: string) => {
@@ -89,9 +105,21 @@ export default function VehiclesPage() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant={getStatusColor(vehicle.status)} className="text-xs">
-                    {vehicle.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getStatusColor(vehicle.status)} className="text-xs">
+                      {vehicle.status}
+                    </Badge>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteVehicleMutation.mutate(vehicle.id)}
+                      disabled={deleteVehicleMutation.isPending}
+                      data-testid={`button-delete-vehicle-${vehicle.id}`}
+                      className="h-6 w-6"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
