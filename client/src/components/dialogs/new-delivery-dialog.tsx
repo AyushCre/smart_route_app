@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertDeliverySchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,8 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
   // Generate unique order ID with timestamp + random number
   const generateUniqueId = (prefix: string) => {
     const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000);
-    return `${prefix}-${timestamp}-${random}`;
+    const random = Math.floor(Math.random() * 100000);
+    return `${prefix}-${random}`;
   };
   
   const form = useForm({
@@ -61,6 +62,25 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
       priority: "normal",
     },
   });
+
+  // Regenerate IDs every time dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        orderId: generateUniqueId("ORD"),
+        customerName: "",
+        customerId: generateUniqueId("CUST"),
+        pickupAddress: "",
+        pickupLat: 22.2369,
+        pickupLng: 84.8549,
+        deliveryAddress: "",
+        deliveryLat: 20.2,
+        deliveryLng: 85.8,
+        status: "pending",
+        priority: "normal",
+      });
+    }
+  }, [open, form]);
 
   const addDeliveryMutation = useMutation({
     mutationFn: async (data: any) => {
