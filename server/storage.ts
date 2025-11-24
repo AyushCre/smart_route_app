@@ -680,47 +680,8 @@ export class MemStorage implements IStorage {
       this.deliveries.set(delivery.id, delivery);
     }
 
-    for (let i = 0; i < 10; i++) {
-      const waypoints = [];
-      const pathCoords = [];
-      const numWaypoints = 3 + Math.floor(Math.random() * 4);
-      
-      for (let j = 0; j < numWaypoints; j++) {
-        const coord = odishaCoords[j % odishaCoords.length];
-        waypoints.push({
-          lat: coord.lat + (Math.random() - 0.5) * 0.05,
-          lng: coord.lng + (Math.random() - 0.5) * 0.05,
-          address: `${1000 + j * 200} ${coord.city} Route ${j + 1}`,
-        });
-        pathCoords.push([
-          coord.lat + (Math.random() - 0.5) * 0.05,
-          coord.lng + (Math.random() - 0.5) * 0.05,
-        ]);
-      }
-
-      let status: "active" | "planned" | "completed";
-      if (i < 8) status = "active";
-      else if (i === 8) status = "planned";
-      else status = "completed";
-
-      const route: Route = {
-        id: randomUUID(),
-        name: `Route-${odishaCoords[i % odishaCoords.length].city}-${String.fromCharCode(65 + i)}`,
-        vehicleId: i < vehicleIds.length ? vehicleIds[i % vehicleIds.length] : null,
-        status,
-        algorithm: i % 2 === 0 ? "dijkstra" : "astar",
-        totalDistance: 40 + Math.random() * 60,
-        estimatedDuration: 5400 + Math.random() * 5400,
-        estimatedCost: 200 + Math.random() * 300,
-        actualCost: status === "completed" ? 220 + Math.random() * 250 : null,
-        waypoints: JSON.stringify(waypoints),
-        pathCoordinates: JSON.stringify(pathCoords),
-        createdAt: new Date(Date.now() - i * 3600000),
-        startedAt: status !== "planned" ? new Date(Date.now() - (i + 1) * 3600000) : null,
-        completedAt: status === "completed" ? new Date(Date.now() - (i - 9) * 3600000) : null,
-      };
-      this.routes.set(route.id, route);
-    }
+    // No pre-created routes - routes are generated fresh when user clicks "Optimize Routes"
+    // This ensures clean data with only Odisha coordinates
 
     const alertMessages = [
       { severity: "critical", type: "fuel", message: "Vehicle VH-1004 fuel level critically low (15%)" },
