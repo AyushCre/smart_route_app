@@ -20,13 +20,15 @@ export default function VehiclesPage() {
 
   const deleteVehicleMutation = useMutation({
     mutationFn: async (vehicleId: string) => {
-      return apiRequest("DELETE", `/api/vehicles/${vehicleId}`);
+      const response = await apiRequest("DELETE", `/api/vehicles/${vehicleId}`);
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
       toast({ title: "Vehicle deleted successfully" });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Delete error:", error);
       toast({ title: "Failed to delete vehicle", variant: "destructive" });
     },
   });
@@ -112,9 +114,9 @@ export default function VehiclesPage() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => deleteVehicleMutation.mutate(vehicle.id)}
+                      onClick={() => deleteVehicleMutation.mutate(vehicle._id)}
                       disabled={deleteVehicleMutation.isPending}
-                      data-testid={`button-delete-vehicle-${vehicle.id}`}
+                      data-testid={`button-delete-vehicle-${vehicle._id}`}
                       className="h-6 w-6"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />

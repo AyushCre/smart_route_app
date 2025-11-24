@@ -15,7 +15,8 @@ import { MapPin, Navigation, Phone, AlertCircle, CheckCircle2 } from "lucide-rea
 import { formatIST } from "@/lib/format-time";
 
 interface Vehicle {
-  id: string;
+  _id: string;
+  id?: string;
   vehicleNumber: string;
   driverName: string;
   latitude: number;
@@ -49,15 +50,15 @@ export default function DriverView() {
     refetchInterval: 5000,
   });
 
-  // Set first vehicle as default if not already selected
+  // Set first vehicle as default only on mount
   useEffect(() => {
     if (vehicles.length > 0 && !selectedVehicleId) {
-      setSelectedVehicleId((vehicles as Vehicle[])[0].id);
+      setSelectedVehicleId((vehicles as Vehicle[])[0]._id);
     }
-  }, [vehicles, selectedVehicleId]);
+  }, [vehicles.length]); // Only depend on length to set initial
 
   const currentVehicle = (vehicles as Vehicle[])?.find(
-    (v) => v.id === selectedVehicleId
+    (v) => v._id === selectedVehicleId
   );
 
   // Mutation to update vehicle location from GPS
@@ -65,7 +66,7 @@ export default function DriverView() {
     mutationFn: async (coords: GpsCoordinates) => {
       if (!currentVehicle) return;
       
-      return apiRequest("PATCH", `/api/vehicles/${currentVehicle.id}`, {
+      return apiRequest("PATCH", `/api/vehicles/${currentVehicle._id}`, {
         latitude: coords.latitude,
         longitude: coords.longitude,
       });
@@ -180,7 +181,7 @@ export default function DriverView() {
             </SelectTrigger>
             <SelectContent>
               {(vehicles as Vehicle[]).map((vehicle) => (
-                <SelectItem key={vehicle.id} value={vehicle.id}>
+                <SelectItem key={vehicle._id} value={vehicle._id}>
                   {vehicle.vehicleNumber} - {vehicle.driverName}
                 </SelectItem>
               ))}
