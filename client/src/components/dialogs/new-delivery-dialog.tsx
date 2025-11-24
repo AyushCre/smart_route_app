@@ -37,12 +37,20 @@ interface NewDeliveryDialogProps {
 
 export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps) {
   const { toast } = useToast();
+  
+  // Generate unique order ID with timestamp + random number
+  const generateUniqueId = (prefix: string) => {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    return `${prefix}-${timestamp}-${random}`;
+  };
+  
   const form = useForm({
     resolver: zodResolver(insertDeliverySchema),
     defaultValues: {
-      orderId: `ORD-${Date.now()}`,
+      orderId: generateUniqueId("ORD"),
       customerName: "",
-      customerId: `CUST-${Date.now()}`,
+      customerId: generateUniqueId("CUST"),
       pickupAddress: "",
       pickupLat: 22.2369, // Rourkela, Odisha
       pickupLng: 84.8549,
