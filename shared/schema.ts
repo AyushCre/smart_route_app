@@ -1,117 +1,117 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, real, integer, timestamp, boolean } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull().default("driver"),
-  name: text("name").notNull(),
+// Zod validation schemas
+export const userSchema = z.object({
+  _id: z.string().optional(),
+  username: z.string(),
+  password: z.string(),
+  role: z.string().default("driver"),
+  name: z.string(),
 });
 
-export const vehicles = pgTable("vehicles", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  vehicleNumber: text("vehicle_number").notNull().unique(),
-  driverName: text("driver_name").notNull(),
-  driverId: varchar("driver_id"),
-  status: text("status").notNull().default("idle"),
-  latitude: real("latitude").notNull(),
-  longitude: real("longitude").notNull(),
-  speed: real("speed").notNull().default(0),
-  fuelLevel: real("fuel_level").notNull().default(100),
-  temperature: real("temperature"),
-  currentRouteId: varchar("current_route_id"),
-  routeCompletion: real("route_completion").notNull().default(0),
-  lastUpdate: timestamp("last_update").notNull().defaultNow(),
+export const vehicleSchema = z.object({
+  _id: z.string().optional(),
+  vehicleNumber: z.string(),
+  driverName: z.string(),
+  driverId: z.string().optional(),
+  status: z.string().default("idle"),
+  latitude: z.number(),
+  longitude: z.number(),
+  speed: z.number().default(0),
+  fuelLevel: z.number().default(100),
+  temperature: z.number().optional(),
+  currentRouteId: z.string().optional(),
+  routeCompletion: z.number().default(0),
+  lastUpdate: z.date().default(() => new Date()),
 });
 
-export const deliveries = pgTable("deliveries", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderId: text("order_id").notNull().unique(),
-  status: text("status").notNull().default("pending"),
-  customerId: varchar("customer_id").notNull(),
-  customerName: text("customer_name").notNull(),
-  pickupAddress: text("pickup_address").notNull(),
-  pickupLat: real("pickup_lat").notNull(),
-  pickupLng: real("pickup_lng").notNull(),
-  deliveryAddress: text("delivery_address").notNull(),
-  deliveryLat: real("delivery_lat").notNull(),
-  deliveryLng: real("delivery_lng").notNull(),
-  vehicleId: varchar("vehicle_id"),
-  routeId: varchar("route_id"),
-  scheduledTime: timestamp("scheduled_time"),
-  estimatedDeliveryTime: timestamp("estimated_delivery_time"),
-  actualDeliveryTime: timestamp("actual_delivery_time"),
-  priority: text("priority").notNull().default("normal"),
-  packageWeight: real("package_weight"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+export const deliverySchema = z.object({
+  _id: z.string().optional(),
+  orderId: z.string(),
+  status: z.string().default("pending"),
+  customerId: z.string(),
+  customerName: z.string(),
+  pickupAddress: z.string(),
+  pickupLat: z.number(),
+  pickupLng: z.number(),
+  deliveryAddress: z.string(),
+  deliveryLat: z.number(),
+  deliveryLng: z.number(),
+  vehicleId: z.string().optional(),
+  routeId: z.string().optional(),
+  scheduledTime: z.date().optional(),
+  estimatedDeliveryTime: z.date().optional(),
+  actualDeliveryTime: z.date().optional(),
+  priority: z.string().default("normal"),
+  packageWeight: z.number().optional(),
+  createdAt: z.date().default(() => new Date()),
 });
 
-export const routes = pgTable("routes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  vehicleId: varchar("vehicle_id"),
-  status: text("status").notNull().default("planned"),
-  algorithm: text("algorithm").notNull().default("dijkstra"),
-  totalDistance: real("total_distance").notNull(),
-  estimatedDuration: integer("estimated_duration").notNull(),
-  estimatedCost: real("estimated_cost").notNull(),
-  actualCost: real("actual_cost"),
-  waypoints: text("waypoints").notNull(),
-  pathCoordinates: text("path_coordinates").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  startedAt: timestamp("started_at"),
-  completedAt: timestamp("completed_at"),
+export const routeSchema = z.object({
+  _id: z.string().optional(),
+  name: z.string(),
+  vehicleId: z.string().optional(),
+  status: z.string().default("planned"),
+  algorithm: z.string().default("dijkstra"),
+  totalDistance: z.number(),
+  estimatedDuration: z.number(),
+  estimatedCost: z.number(),
+  actualCost: z.number().optional(),
+  waypoints: z.string(),
+  pathCoordinates: z.string(),
+  createdAt: z.date().default(() => new Date()),
+  startedAt: z.date().optional(),
+  completedAt: z.date().optional(),
 });
 
-export const alerts = pgTable("alerts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  type: text("type").notNull(),
-  severity: text("severity").notNull().default("info"),
-  message: text("message").notNull(),
-  vehicleId: varchar("vehicle_id"),
-  deliveryId: varchar("delivery_id"),
-  routeId: varchar("route_id"),
-  isRead: boolean("is_read").notNull().default(false),
-  metadata: text("metadata"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+export const alertSchema = z.object({
+  _id: z.string().optional(),
+  type: z.string(),
+  severity: z.string().default("info"),
+  message: z.string(),
+  vehicleId: z.string().optional(),
+  deliveryId: z.string().optional(),
+  routeId: z.string().optional(),
+  isRead: z.boolean().default(false),
+  metadata: z.string().optional(),
+  createdAt: z.date().default(() => new Date()),
 });
 
-export const iotSensorData = pgTable("iot_sensor_data", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  deviceId: text("device_id").notNull(),
-  vehicleId: varchar("vehicle_id").notNull(),
-  latitude: real("latitude").notNull(),
-  longitude: real("longitude").notNull(),
-  speed: real("speed").notNull(),
-  fuelLevel: real("fuel_level").notNull(),
-  temperature: real("temperature"),
-  engineStatus: text("engine_status").notNull().default("running"),
-  connectionStatus: text("connection_status").notNull().default("connected"),
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
+export const iotSensorDataSchema = z.object({
+  _id: z.string().optional(),
+  deviceId: z.string(),
+  vehicleId: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  speed: z.number(),
+  fuelLevel: z.number(),
+  temperature: z.number().optional(),
+  engineStatus: z.string().default("running"),
+  connectionStatus: z.string().default("connected"),
+  timestamp: z.date().default(() => new Date()),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true });
-export const insertVehicleSchema = createInsertSchema(vehicles).omit({ id: true, lastUpdate: true });
-export const insertDeliverySchema = createInsertSchema(deliveries).omit({ id: true, createdAt: true });
-export const insertRouteSchema = createInsertSchema(routes).omit({ id: true, createdAt: true });
-export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true, createdAt: true });
-export const insertIotSensorDataSchema = createInsertSchema(iotSensorData).omit({ id: true, timestamp: true });
+// Insert schemas (omit auto-generated fields)
+export const insertUserSchema = userSchema.omit({ _id: true });
+export const insertVehicleSchema = vehicleSchema.omit({ _id: true, lastUpdate: true });
+export const insertDeliverySchema = deliverySchema.omit({ _id: true, createdAt: true });
+export const insertRouteSchema = routeSchema.omit({ _id: true, createdAt: true });
+export const insertAlertSchema = alertSchema.omit({ _id: true, createdAt: true });
+export const insertIotSensorDataSchema = iotSensorDataSchema.omit({ _id: true, timestamp: true });
 
+// Type definitions
+export type User = z.infer<typeof userSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type Vehicle = z.infer<typeof vehicleSchema>;
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
-export type Vehicle = typeof vehicles.$inferSelect;
+export type Delivery = z.infer<typeof deliverySchema>;
 export type InsertDelivery = z.infer<typeof insertDeliverySchema>;
-export type Delivery = typeof deliveries.$inferSelect;
+export type Route = z.infer<typeof routeSchema>;
 export type InsertRoute = z.infer<typeof insertRouteSchema>;
-export type Route = typeof routes.$inferSelect;
+export type Alert = z.infer<typeof alertSchema>;
 export type InsertAlert = z.infer<typeof insertAlertSchema>;
-export type Alert = typeof alerts.$inferSelect;
+export type IotSensorData = z.infer<typeof iotSensorDataSchema>;
 export type InsertIotSensorData = z.infer<typeof insertIotSensorDataSchema>;
-export type IotSensorData = typeof iotSensorData.$inferSelect;
 
 export type DashboardMetrics = {
   activeDeliveries: number;
@@ -122,26 +122,4 @@ export type DashboardMetrics = {
   totalRevenue: number;
   pendingAlerts: number;
   routeEfficiency: number;
-};
-
-export type VehicleMarker = {
-  id: string;
-  vehicleNumber: string;
-  driverName: string;
-  latitude: number;
-  longitude: number;
-  status: string;
-  speed: number;
-  heading?: number;
-};
-
-export type DeliveryWaypoint = {
-  id: string;
-  orderId: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  type: "pickup" | "delivery";
-  status: string;
-  scheduledTime?: Date;
 };

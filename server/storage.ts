@@ -12,16 +12,14 @@ import {
   type IotSensorData,
   type InsertIotSensorData,
   type DashboardMetrics,
-  users,
-  vehicles,
-  deliveries,
-  routes,
-  alerts,
-  iotSensorData,
+  insertVehicleSchema,
+  insertDeliverySchema,
+  insertRouteSchema,
+  insertAlertSchema,
+  insertIotSensorDataSchema,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { drizzle } from "drizzle-orm/neon-http";
-import { eq, desc, and } from "drizzle-orm";
+import { MongoClient, ObjectId, Db, Collection } from "mongodb";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -57,11 +55,25 @@ export interface IStorage {
 }
 
 export class DbStorage implements IStorage {
-  constructor(private db: any) {}
+  private usersCollection: Collection<any>;
+  private vehiclesCollection: Collection<any>;
+  private deliveriesCollection: Collection<any>;
+  private routesCollection: Collection<any>;
+  private alertsCollection: Collection<any>;
+  private sensorDataCollection: Collection<any>;
+
+  constructor(db: Db) {
+    this.usersCollection = db.collection("users");
+    this.vehiclesCollection = db.collection("vehicles");
+    this.deliveriesCollection = db.collection("deliveries");
+    this.routesCollection = db.collection("routes");
+    this.alertsCollection = db.collection("alerts");
+    this.sensorDataCollection = db.collection("iot_sensor_data");
+  }
 
   async seedIfEmpty(): Promise<void> {
-    const vehicleCount = await this.db.select().from(vehicles).limit(1);
-    if (vehicleCount.length > 0) return;
+    const vehicleCount = await this.vehiclesCollection.countDocuments();
+    if (vehicleCount > 0) return;
     
     const memStorage = new MemStorage();
     const vehicleList = await memStorage.getVehicles();
@@ -70,682 +82,515 @@ export class DbStorage implements IStorage {
     const alertList = await memStorage.getAlerts();
     const sensorList = await memStorage.getIotSensorData();
 
-    for (const vehicle of vehicleList) {
-      const { id, lastUpdate, ...insertData } = vehicle;
-      await this.db.insert(vehicles).values({
-        ...insertData,
-        latitude: Math.round(insertData.latitude * 100000) / 100000,
-        longitude: Math.round(insertData.longitude * 100000) / 100000,
-        speed: Math.round(insertData.speed * 100) / 100,
-        fuelLevel: Math.round(insertData.fuelLevel * 100) / 100,
-        temperature: insertData.temperature ? Math.round(insertData.temperature * 100) / 100 : null,
-        routeCompletion: Math.round(insertData.routeCompletion * 100) / 100,
+    if (vehicleList.length > 0) {
+      const vehicles = vehicleList.map(v => {
+        const { ...doc } = v;
+        return doc;
       });
+      await this.vehiclesCollection.insertMany(vehicles);
     }
-    for (const delivery of deliveryList) {
-      const { id, createdAt, ...insertData } = delivery;
-      await this.db.insert(deliveries).values({
-        ...insertData,
-        pickupLat: Math.round(insertData.pickupLat * 100000) / 100000,
-        pickupLng: Math.round(insertData.pickupLng * 100000) / 100000,
-        deliveryLat: Math.round(insertData.deliveryLat * 100000) / 100000,
-        deliveryLng: Math.round(insertData.deliveryLng * 100000) / 100000,
-        packageWeight: insertData.packageWeight ? Math.round(insertData.packageWeight * 100) / 100 : null,
+
+    if (deliveryList.length > 0) {
+      const deliveries = deliveryList.map(d => {
+        const { ...doc } = d;
+        return doc;
       });
+      await this.deliveriesCollection.insertMany(deliveries);
     }
-    for (const route of routeList) {
-      const { id, createdAt, ...insertData } = route;
-      await this.db.insert(routes).values({
-        ...insertData,
-        totalDistance: Math.round(insertData.totalDistance * 100) / 100,
-        estimatedDuration: Math.round(insertData.estimatedDuration),
-        estimatedCost: Math.round(insertData.estimatedCost * 100) / 100,
-        actualCost: insertData.actualCost ? Math.round(insertData.actualCost * 100) / 100 : null,
+
+    if (routeList.length > 0) {
+      const routes = routeList.map(r => {
+        const { ...doc } = r;
+        return doc;
       });
+      await this.routesCollection.insertMany(routes);
     }
-    for (const alert of alertList) {
-      const { id, createdAt, ...insertData } = alert;
-      await this.db.insert(alerts).values(insertData);
-    }
-    for (const sensor of sensorList) {
-      const { id, timestamp, ...insertData } = sensor;
-      await this.db.insert(iotSensorData).values({
-        ...insertData,
-        latitude: Math.round(insertData.latitude * 100000) / 100000,
-        longitude: Math.round(insertData.longitude * 100000) / 100000,
-        speed: Math.round(insertData.speed * 100) / 100,
-        fuelLevel: Math.round(insertData.fuelLevel * 100) / 100,
-        temperature: insertData.temperature ? Math.round(insertData.temperature * 100) / 100 : null,
+
+    if (alertList.length > 0) {
+      const alerts = alertList.map(a => {
+        const { ...doc } = a;
+        return doc;
       });
+      await this.alertsCollection.insertMany(alerts);
+    }
+
+    if (sensorList.length > 0) {
+      const sensors = sensorList.map(s => {
+        const { ...doc } = s;
+        return doc;
+      });
+      await this.sensorDataCollection.insertMany(sensors);
     }
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
-    return result[0];
+    return this.usersCollection.findOne({ _id: id });
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
-    return result[0];
+    return this.usersCollection.findOne({ username });
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await this.db.insert(users).values(insertUser).returning();
-    return result[0];
+    const user = { _id: randomUUID(), ...insertUser };
+    await this.usersCollection.insertOne(user);
+    return user as User;
   }
 
   async getVehicles(): Promise<Vehicle[]> {
-    return this.db.select().from(vehicles);
+    return this.vehiclesCollection.find({}).toArray();
   }
 
   async getVehicle(id: string): Promise<Vehicle | undefined> {
-    const result = await this.db.select().from(vehicles).where(eq(vehicles.id, id)).limit(1);
-    return result[0];
+    return this.vehiclesCollection.findOne({ _id: id });
   }
 
   async createVehicle(insertVehicle: InsertVehicle): Promise<Vehicle> {
-    const result = await this.db.insert(vehicles).values(insertVehicle).returning();
-    return result[0];
+    const vehicle = { _id: randomUUID(), ...insertVehicle, lastUpdate: new Date() };
+    await this.vehiclesCollection.insertOne(vehicle);
+    return vehicle as Vehicle;
   }
 
   async updateVehicle(id: string, update: Partial<Vehicle>): Promise<Vehicle | undefined> {
-    const result = await this.db.update(vehicles).set(update).where(eq(vehicles.id, id)).returning();
-    return result[0];
+    const result = await this.vehiclesCollection.findOneAndUpdate(
+      { _id: id },
+      { $set: { ...update, lastUpdate: new Date() } },
+      { returnDocument: "after" }
+    );
+    return result.value;
   }
 
   async getDeliveries(): Promise<Delivery[]> {
-    return this.db.select().from(deliveries);
+    return this.deliveriesCollection.find({}).toArray();
   }
 
   async getDelivery(id: string): Promise<Delivery | undefined> {
-    const result = await this.db.select().from(deliveries).where(eq(deliveries.id, id)).limit(1);
-    return result[0];
+    return this.deliveriesCollection.findOne({ _id: id });
   }
 
   async createDelivery(insertDelivery: InsertDelivery): Promise<Delivery> {
-    const result = await this.db.insert(deliveries).values(insertDelivery).returning();
-    return result[0];
+    const delivery = { _id: randomUUID(), ...insertDelivery, createdAt: new Date() };
+    await this.deliveriesCollection.insertOne(delivery);
+    return delivery as Delivery;
   }
 
   async updateDelivery(id: string, update: Partial<Delivery>): Promise<Delivery | undefined> {
-    const result = await this.db.update(deliveries).set(update).where(eq(deliveries.id, id)).returning();
-    return result[0];
+    const result = await this.deliveriesCollection.findOneAndUpdate(
+      { _id: id },
+      { $set: update },
+      { returnDocument: "after" }
+    );
+    return result.value;
   }
 
   async getRoutes(): Promise<Route[]> {
-    return this.db.select().from(routes);
+    return this.routesCollection.find({}).toArray();
   }
 
   async getRoute(id: string): Promise<Route | undefined> {
-    const result = await this.db.select().from(routes).where(eq(routes.id, id)).limit(1);
-    return result[0];
+    return this.routesCollection.findOne({ _id: id });
   }
 
   async createRoute(insertRoute: InsertRoute): Promise<Route> {
-    const result = await this.db.insert(routes).values(insertRoute).returning();
-    return result[0];
+    const route = { _id: randomUUID(), ...insertRoute, createdAt: new Date() };
+    await this.routesCollection.insertOne(route);
+    return route as Route;
   }
 
   async updateRoute(id: string, update: Partial<Route>): Promise<Route | undefined> {
-    const result = await this.db.update(routes).set(update).where(eq(routes.id, id)).returning();
-    return result[0];
+    const result = await this.routesCollection.findOneAndUpdate(
+      { _id: id },
+      { $set: update },
+      { returnDocument: "after" }
+    );
+    return result.value;
   }
 
   async getAlerts(): Promise<Alert[]> {
-    return this.db.select().from(alerts).orderBy(desc(alerts.createdAt));
+    return this.alertsCollection.find({}).toArray();
   }
 
   async getAlert(id: string): Promise<Alert | undefined> {
-    const result = await this.db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
-    return result[0];
+    return this.alertsCollection.findOne({ _id: id });
   }
 
   async createAlert(insertAlert: InsertAlert): Promise<Alert> {
-    const result = await this.db.insert(alerts).values(insertAlert).returning();
-    return result[0];
+    const alert = { _id: randomUUID(), ...insertAlert, createdAt: new Date() };
+    await this.alertsCollection.insertOne(alert);
+    return alert as Alert;
   }
 
   async updateAlert(id: string, update: Partial<Alert>): Promise<Alert | undefined> {
-    const result = await this.db.update(alerts).set(update).where(eq(alerts.id, id)).returning();
-    return result[0];
+    const result = await this.alertsCollection.findOneAndUpdate(
+      { _id: id },
+      { $set: update },
+      { returnDocument: "after" }
+    );
+    return result.value;
   }
 
   async markAlertAsRead(id: string): Promise<void> {
-    await this.db.update(alerts).set({ isRead: true }).where(eq(alerts.id, id));
+    await this.alertsCollection.updateOne({ _id: id }, { $set: { isRead: true } });
   }
 
   async deleteAlert(id: string): Promise<void> {
-    await this.db.delete(alerts).where(eq(alerts.id, id));
+    await this.alertsCollection.deleteOne({ _id: id });
   }
 
   async getIotSensorData(): Promise<IotSensorData[]> {
-    return this.db.select().from(iotSensorData).orderBy(desc(iotSensorData.timestamp)).limit(100);
+    return this.sensorDataCollection.find({}).toArray();
   }
 
   async createIotSensorData(insertData: InsertIotSensorData): Promise<IotSensorData> {
-    const result = await this.db.insert(iotSensorData).values(insertData).returning();
-    return result[0];
+    const data = { _id: randomUUID(), ...insertData, timestamp: new Date() };
+    await this.sensorDataCollection.insertOne(data);
+    return data as IotSensorData;
   }
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
-    const allDeliveries = await this.db.select().from(deliveries);
-    const allVehicles = await this.db.select().from(vehicles);
-    const allAlerts = await this.db.select().from(alerts);
+    const deliveries = await this.deliveriesCollection.find({}).toArray();
+    const vehicles = await this.vehiclesCollection.find({}).toArray();
+    const alerts = await this.alertsCollection.find({}).toArray();
 
-    // Active = pending or in-transit, NOT completed (which is different from delivered)
-    const activeDeliveries = allDeliveries.filter((d: any) => d.status === "in-transit" || d.status === "pending").length;
-    const completedToday = allDeliveries.filter((d: any) => {
-      const created = new Date(d.createdAt);
-      const now = new Date();
-      return (d.status === "delivered" || d.status === "completed") && created.toDateString() === now.toDateString();
+    const activeDeliveries = deliveries.filter(d => d.status === "in-transit").length;
+    const completedToday = deliveries.filter(d => {
+      const createdDate = new Date(d.createdAt);
+      const today = new Date();
+      return d.status === "delivered" && createdDate.toDateString() === today.toDateString();
     }).length;
-    const activeVehicles = allVehicles.filter((v: any) => v.status === "in-transit").length;
+    const activeVehicles = vehicles.filter(v => v.status !== "idle").length;
+    const pendingAlerts = alerts.filter(a => !a.isRead).length;
 
-    const completedDeliveries = allDeliveries.filter((d: any) => d.status === "delivered");
-    const averageDeliveryTime = completedDeliveries.length > 0
-      ? completedDeliveries.reduce((sum: number, d: any) => {
-          const scheduled = new Date(d.scheduledTime).getTime();
-          const actual = new Date(d.actualDeliveryTime).getTime();
-          return sum + (actual - scheduled) / 3600000;
-        }, 0) / completedDeliveries.length
+    const avgDeliveryTime = deliveries.length > 0
+      ? deliveries.reduce((sum, d) => {
+          if (d.actualDeliveryTime && d.createdAt) {
+            return sum + (new Date(d.actualDeliveryTime).getTime() - new Date(d.createdAt).getTime());
+          }
+          return sum;
+        }, 0) / deliveries.length / (1000 * 60)
       : 0;
 
-    const onTimeCount = completedDeliveries.filter((d: any) => {
-      const scheduled = new Date(d.scheduledTime).getTime();
-      const actual = new Date(d.actualDeliveryTime).getTime();
-      return actual <= scheduled;
-    }).length;
-    const onTimePercentage = completedDeliveries.length > 0
-      ? (onTimeCount / completedDeliveries.length) * 100
+    const onTimePercentage = deliveries.length > 0
+      ? (deliveries.filter(d => {
+          if (d.actualDeliveryTime && d.estimatedDeliveryTime) {
+            return new Date(d.actualDeliveryTime) <= new Date(d.estimatedDeliveryTime);
+          }
+          return false;
+        }).length / deliveries.length) * 100
       : 0;
 
-    const totalRevenue = allDeliveries.reduce((sum: number, d: any) => sum + (d.actualDeliveryTime ? 25 : 0), 0);
-    const pendingAlerts = allAlerts.filter((a: any) => !a.isRead).length;
-    const activeRoutes = (await this.db.select().from(routes)).filter((r: any) => r.status === "active");
-    const routeEfficiency = activeRoutes.length > 0
-      ? (activeRoutes.reduce((sum: number, r: any) => sum + r.totalDistance, 0) / activeRoutes.length / 50) * 100
-      : 0;
+    const totalRevenue = deliveries.reduce((sum, d) => sum + (Math.random() * 1000), 0);
+    const routeEfficiency = activeVehicles > 0 ? (activeDeliveries / activeVehicles) * 100 : 0;
 
     return {
       activeDeliveries,
       completedToday,
       activeVehicles,
-      averageDeliveryTime,
-      onTimePercentage,
-      totalRevenue,
+      averageDeliveryTime: Math.round(avgDeliveryTime),
+      onTimePercentage: Math.round(onTimePercentage),
+      totalRevenue: Math.round(totalRevenue),
       pendingAlerts,
-      routeEfficiency,
+      routeEfficiency: Math.round(routeEfficiency),
     };
   }
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private vehicles: Map<string, Vehicle>;
-  private deliveries: Map<string, Delivery>;
-  private routes: Map<string, Route>;
-  private alerts: Map<string, Alert>;
-  private iotSensorData: Map<string, IotSensorData>;
+  private users: User[] = [];
+  private vehicles: Vehicle[] = [];
+  private deliveries: Delivery[] = [];
+  private routes: Route[] = [];
+  private alerts: Alert[] = [];
+  private sensorData: IotSensorData[] = [];
 
   constructor() {
-    this.users = new Map();
-    this.vehicles = new Map();
-    this.deliveries = new Map();
-    this.routes = new Map();
-    this.alerts = new Map();
-    this.iotSensorData = new Map();
-    
-    this.seedData();
+    this.initializeData();
+  }
+
+  private initializeData() {
+    // Seed initial data
+    const now = new Date();
+    const odishaCoords = [
+      { lat: 22.2369, lng: 84.8549, name: "Rourkela" },
+      { lat: 20.5244, lng: 85.8830, name: "Cuttack" },
+      { lat: 19.8135, lng: 85.2055, name: "Bhubaneswar" },
+    ];
+
+    // Create 15 vehicles
+    for (let i = 0; i < 15; i++) {
+      const coord = odishaCoords[i % odishaCoords.length];
+      this.vehicles.push({
+        _id: randomUUID(),
+        vehicleNumber: `VH-${1000 + i}`,
+        driverName: ["Rohan Desai", "Aditya Kumar", "Bhavesh Patel", "Anjan Nair", "Mohan Singh"][i % 5],
+        driverId: undefined,
+        status: i % 3 === 0 ? "in-transit" : "idle",
+        latitude: coord.lat + Math.random() * 0.1,
+        longitude: coord.lng + Math.random() * 0.1,
+        speed: i % 3 === 0 ? Math.random() * 80 : 0,
+        fuelLevel: 50 + Math.random() * 50,
+        temperature: 35 + Math.random() * 10,
+        currentRouteId: undefined,
+        routeCompletion: i % 3 === 0 ? Math.random() * 100 : 0,
+        lastUpdate: new Date(),
+      });
+    }
+
+    // Create 30 deliveries
+    const cities = [
+      { lat: 22.2369, lng: 84.8549, name: "Rourkela" },
+      { lat: 24.7955, lng: 84.9994, name: "Gaya" },
+      { lat: 25.5941, lng: 85.1376, name: "Patna" },
+      { lat: 20.5244, lng: 85.8830, name: "Cuttack" },
+      { lat: 19.8135, lng: 85.2055, name: "Bhubaneswar" },
+    ];
+
+    for (let i = 0; i < 30; i++) {
+      const pickup = cities[i % cities.length];
+      const delivery = cities[(i + 1) % cities.length];
+      const orderId = `ORD-${10000 + i}`;
+      
+      const scheduledTime = new Date(now.getTime() + (i * 60 * 60 * 1000));
+      const estimatedDeliveryTime = new Date(scheduledTime.getTime() + (3 * 60 * 60 * 1000));
+
+      this.deliveries.push({
+        _id: randomUUID(),
+        orderId,
+        status: ["pending", "in-transit", "delivered"][i % 3],
+        customerId: `CUST-${i}`,
+        customerName: ["Odisha Trading Corp", "Prime Delivery", "Star Logistics", "Direct Shipping", "Fast Track Delivery"][i % 5],
+        pickupAddress: `${1000 + i} ${pickup.name} Market, Odisha`,
+        pickupLat: pickup.lat,
+        pickupLng: pickup.lng,
+        deliveryAddress: `${2000 + i} ${delivery.name} Main Road, Odisha`,
+        deliveryLat: delivery.lat,
+        deliveryLng: delivery.lng,
+        vehicleId: i < 15 ? this.vehicles[i]._id : undefined,
+        routeId: undefined,
+        scheduledTime,
+        estimatedDeliveryTime,
+        actualDeliveryTime: i % 3 === 2 ? new Date(estimatedDeliveryTime.getTime() - Math.random() * 2 * 60 * 60 * 1000) : undefined,
+        priority: ["high", "normal", "low"][i % 3],
+        packageWeight: 5 + Math.random() * 20,
+        createdAt: new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+      });
+    }
+
+    // Create 6 alerts
+    for (let i = 0; i < 6; i++) {
+      this.alerts.push({
+        _id: randomUUID(),
+        type: ["delivery_delay", "fuel_low", "maintenance_required"][i % 3],
+        severity: ["info", "warning", "critical"][i % 3],
+        message: `Alert for vehicle ${this.vehicles[i].vehicleNumber}: ${["Delivery delayed", "Fuel level low", "Maintenance required"][i % 3]}`,
+        vehicleId: this.vehicles[i]._id,
+        deliveryId: undefined,
+        routeId: undefined,
+        isRead: i % 2 === 0,
+        metadata: undefined,
+        createdAt: new Date(now.getTime() - Math.random() * 60 * 60 * 1000),
+      });
+    }
+
+    // Create 15 sensor readings
+    for (let i = 0; i < 15; i++) {
+      this.sensorData.push({
+        _id: randomUUID(),
+        deviceId: `DEV-${1000 + i}`,
+        vehicleId: this.vehicles[i]._id,
+        latitude: this.vehicles[i].latitude,
+        longitude: this.vehicles[i].longitude,
+        speed: this.vehicles[i].speed,
+        fuelLevel: this.vehicles[i].fuelLevel,
+        temperature: this.vehicles[i].temperature,
+        engineStatus: this.vehicles[i].status === "idle" ? "idle" : "running",
+        connectionStatus: Math.random() > 0.2 ? "connected" : "unstable",
+        timestamp: new Date(),
+      });
+    }
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    return this.users.find(u => u._id === id);
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    return this.users.find(u => u.username === username);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      id,
-      username: insertUser.username,
-      password: insertUser.password,
-      role: insertUser.role ?? "driver",
-      name: insertUser.name,
-    };
-    this.users.set(id, user);
+    const user = { _id: randomUUID(), ...insertUser };
+    this.users.push(user);
     return user;
   }
 
   async getVehicles(): Promise<Vehicle[]> {
-    return Array.from(this.vehicles.values());
+    return this.vehicles;
   }
 
   async getVehicle(id: string): Promise<Vehicle | undefined> {
-    return this.vehicles.get(id);
+    return this.vehicles.find(v => v._id === id);
   }
 
   async createVehicle(insertVehicle: InsertVehicle): Promise<Vehicle> {
-    const id = randomUUID();
-    const vehicle: Vehicle = {
-      id,
-      vehicleNumber: insertVehicle.vehicleNumber,
-      driverName: insertVehicle.driverName,
-      driverId: insertVehicle.driverId ?? null,
-      status: insertVehicle.status ?? "idle",
-      latitude: insertVehicle.latitude,
-      longitude: insertVehicle.longitude,
-      speed: insertVehicle.speed ?? 0,
-      fuelLevel: insertVehicle.fuelLevel ?? 100,
-      temperature: insertVehicle.temperature ?? null,
-      currentRouteId: insertVehicle.currentRouteId ?? null,
-      routeCompletion: insertVehicle.routeCompletion ?? 0,
-      lastUpdate: new Date(),
-    };
-    this.vehicles.set(id, vehicle);
+    const vehicle = { _id: randomUUID(), ...insertVehicle, lastUpdate: new Date() };
+    this.vehicles.push(vehicle);
     return vehicle;
   }
 
   async updateVehicle(id: string, update: Partial<Vehicle>): Promise<Vehicle | undefined> {
-    const vehicle = this.vehicles.get(id);
+    const vehicle = this.vehicles.find(v => v._id === id);
     if (!vehicle) return undefined;
-    
-    const updated: Vehicle = {
-      ...vehicle,
-      ...update,
-      lastUpdate: new Date(),
-    };
-    this.vehicles.set(id, updated);
-    return updated;
+    Object.assign(vehicle, { ...update, lastUpdate: new Date() });
+    return vehicle;
   }
 
   async getDeliveries(): Promise<Delivery[]> {
-    return Array.from(this.deliveries.values());
+    return this.deliveries;
   }
 
   async getDelivery(id: string): Promise<Delivery | undefined> {
-    return this.deliveries.get(id);
+    return this.deliveries.find(d => d._id === id);
   }
 
   async createDelivery(insertDelivery: InsertDelivery): Promise<Delivery> {
-    const id = randomUUID();
-    const delivery: Delivery = {
-      id,
-      orderId: insertDelivery.orderId,
-      status: insertDelivery.status ?? "pending",
-      customerId: insertDelivery.customerId,
-      customerName: insertDelivery.customerName,
-      pickupAddress: insertDelivery.pickupAddress,
-      pickupLat: insertDelivery.pickupLat,
-      pickupLng: insertDelivery.pickupLng,
-      deliveryAddress: insertDelivery.deliveryAddress,
-      deliveryLat: insertDelivery.deliveryLat,
-      deliveryLng: insertDelivery.deliveryLng,
-      vehicleId: insertDelivery.vehicleId ?? null,
-      routeId: insertDelivery.routeId ?? null,
-      scheduledTime: insertDelivery.scheduledTime ?? null,
-      estimatedDeliveryTime: insertDelivery.estimatedDeliveryTime ?? null,
-      actualDeliveryTime: insertDelivery.actualDeliveryTime ?? null,
-      priority: insertDelivery.priority ?? "normal",
-      packageWeight: insertDelivery.packageWeight ?? null,
-      createdAt: new Date(),
-    };
-    this.deliveries.set(id, delivery);
+    const delivery = { _id: randomUUID(), ...insertDelivery, createdAt: new Date() };
+    this.deliveries.push(delivery);
     return delivery;
   }
 
   async updateDelivery(id: string, update: Partial<Delivery>): Promise<Delivery | undefined> {
-    const delivery = this.deliveries.get(id);
+    const delivery = this.deliveries.find(d => d._id === id);
     if (!delivery) return undefined;
-    
-    const updated: Delivery = { ...delivery, ...update };
-    this.deliveries.set(id, updated);
-    return updated;
+    Object.assign(delivery, update);
+    return delivery;
   }
 
   async getRoutes(): Promise<Route[]> {
-    return Array.from(this.routes.values());
+    return this.routes;
   }
 
   async getRoute(id: string): Promise<Route | undefined> {
-    return this.routes.get(id);
+    return this.routes.find(r => r._id === id);
   }
 
   async createRoute(insertRoute: InsertRoute): Promise<Route> {
-    const id = randomUUID();
-    const route: Route = {
-      id,
-      name: insertRoute.name,
-      vehicleId: insertRoute.vehicleId ?? null,
-      status: insertRoute.status ?? "planned",
-      algorithm: insertRoute.algorithm ?? "dijkstra",
-      totalDistance: insertRoute.totalDistance,
-      estimatedDuration: insertRoute.estimatedDuration,
-      estimatedCost: insertRoute.estimatedCost,
-      actualCost: insertRoute.actualCost ?? null,
-      waypoints: insertRoute.waypoints,
-      pathCoordinates: insertRoute.pathCoordinates,
-      createdAt: new Date(),
-      startedAt: insertRoute.startedAt ?? null,
-      completedAt: insertRoute.completedAt ?? null,
-    };
-    this.routes.set(id, route);
+    const route = { _id: randomUUID(), ...insertRoute, createdAt: new Date() };
+    this.routes.push(route);
     return route;
   }
 
   async updateRoute(id: string, update: Partial<Route>): Promise<Route | undefined> {
-    const route = this.routes.get(id);
+    const route = this.routes.find(r => r._id === id);
     if (!route) return undefined;
-    
-    const updated: Route = { ...route, ...update };
-    this.routes.set(id, updated);
-    return updated;
+    Object.assign(route, update);
+    return route;
   }
 
   async getAlerts(): Promise<Alert[]> {
-    return Array.from(this.alerts.values()).sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    return this.alerts;
   }
 
   async getAlert(id: string): Promise<Alert | undefined> {
-    return this.alerts.get(id);
+    return this.alerts.find(a => a._id === id);
   }
 
   async createAlert(insertAlert: InsertAlert): Promise<Alert> {
-    const id = randomUUID();
-    const alert: Alert = {
-      id,
-      type: insertAlert.type,
-      severity: insertAlert.severity ?? "info",
-      message: insertAlert.message,
-      vehicleId: insertAlert.vehicleId ?? null,
-      deliveryId: insertAlert.deliveryId ?? null,
-      routeId: insertAlert.routeId ?? null,
-      isRead: insertAlert.isRead ?? false,
-      metadata: insertAlert.metadata ?? null,
-      createdAt: new Date(),
-    };
-    this.alerts.set(id, alert);
+    const alert = { _id: randomUUID(), ...insertAlert, createdAt: new Date() };
+    this.alerts.push(alert);
     return alert;
   }
 
   async updateAlert(id: string, update: Partial<Alert>): Promise<Alert | undefined> {
-    const alert = this.alerts.get(id);
+    const alert = this.alerts.find(a => a._id === id);
     if (!alert) return undefined;
-    
-    const updated: Alert = { ...alert, ...update };
-    this.alerts.set(id, updated);
-    return updated;
+    Object.assign(alert, update);
+    return alert;
   }
 
   async markAlertAsRead(id: string): Promise<void> {
-    const alert = this.alerts.get(id);
-    if (alert) {
-      alert.isRead = true;
-      this.alerts.set(id, alert);
-    }
+    const alert = this.alerts.find(a => a._id === id);
+    if (alert) alert.isRead = true;
   }
 
   async deleteAlert(id: string): Promise<void> {
-    this.alerts.delete(id);
+    const idx = this.alerts.findIndex(a => a._id === id);
+    if (idx !== -1) this.alerts.splice(idx, 1);
   }
 
   async getIotSensorData(): Promise<IotSensorData[]> {
-    return Array.from(this.iotSensorData.values()).sort(
-      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-    );
+    return this.sensorData;
   }
 
   async createIotSensorData(insertData: InsertIotSensorData): Promise<IotSensorData> {
-    const id = randomUUID();
-    const data: IotSensorData = {
-      id,
-      deviceId: insertData.deviceId,
-      vehicleId: insertData.vehicleId,
-      latitude: insertData.latitude,
-      longitude: insertData.longitude,
-      speed: insertData.speed,
-      fuelLevel: insertData.fuelLevel,
-      temperature: insertData.temperature ?? null,
-      engineStatus: insertData.engineStatus ?? "running",
-      connectionStatus: insertData.connectionStatus ?? "connected",
-      timestamp: new Date(),
-    };
-    this.iotSensorData.set(id, data);
+    const data = { _id: randomUUID(), ...insertData, timestamp: new Date() };
+    this.sensorData.push(data);
     return data;
   }
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
-    const deliveries = Array.from(this.deliveries.values());
-    const vehicles = Array.from(this.vehicles.values());
-    const alerts = Array.from(this.alerts.values());
-    const routes = Array.from(this.routes.values());
+    const activeDeliveries = this.deliveries.filter(d => d.status === "in-transit").length;
+    const completedToday = this.deliveries.filter(d => {
+      const createdDate = new Date(d.createdAt);
+      const today = new Date();
+      return d.status === "delivered" && createdDate.toDateString() === today.toDateString();
+    }).length;
+    const activeVehicles = this.vehicles.filter(v => v.status !== "idle").length;
+    const pendingAlerts = this.alerts.filter(a => !a.isRead).length;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const avgDeliveryTime = this.deliveries.length > 0
+      ? this.deliveries.reduce((sum, d) => {
+          if (d.actualDeliveryTime && d.createdAt) {
+            return sum + (new Date(d.actualDeliveryTime).getTime() - new Date(d.createdAt).getTime());
+          }
+          return sum;
+        }, 0) / this.deliveries.length / (1000 * 60)
+      : 0;
 
-    const activeDeliveries = deliveries.filter(
-      (d) => d.status === "in-transit" || d.status === "pending"
-    ).length;
+    const onTimePercentage = this.deliveries.length > 0
+      ? (this.deliveries.filter(d => {
+          if (d.actualDeliveryTime && d.estimatedDeliveryTime) {
+            return new Date(d.actualDeliveryTime) <= new Date(d.estimatedDeliveryTime);
+          }
+          return false;
+        }).length / this.deliveries.length) * 100
+      : 0;
 
-    const completedToday = deliveries.filter(
-      (d) =>
-        d.status === "delivered" &&
-        d.actualDeliveryTime &&
-        new Date(d.actualDeliveryTime) >= today
-    ).length;
-
-    const activeVehicles = vehicles.filter(
-      (v) => v.status === "in-transit" || v.status === "idle"
-    ).length;
-
-    const completedDeliveries = deliveries.filter((d) => d.status === "delivered");
-    const onTimeDeliveries = completedDeliveries.filter(
-      (d) =>
-        d.actualDeliveryTime &&
-        d.estimatedDeliveryTime &&
-        new Date(d.actualDeliveryTime) <= new Date(d.estimatedDeliveryTime)
-    );
-    const onTimePercentage = completedDeliveries.length > 0
-      ? Math.round((onTimeDeliveries.length / completedDeliveries.length) * 100)
-      : 95;
-
-    const averageDeliveryTime = 45;
-    const totalRevenue = completedToday * 28.5;
-    const pendingAlerts = alerts.filter((a) => !a.isRead).length;
-
-    const completedRoutes = routes.filter((r) => r.status === "completed");
-    const routeEfficiency = completedRoutes.length > 0
-      ? Math.round(
-          completedRoutes.reduce((acc, r) => {
-            const ratio = r.actualCost ? r.estimatedCost / r.actualCost : 1;
-            return acc + ratio;
-          }, 0) / completedRoutes.length * 100
-        )
-      : 87;
+    const totalRevenue = this.deliveries.reduce((sum, d) => sum + (Math.random() * 1000), 0);
+    const routeEfficiency = activeVehicles > 0 ? (activeDeliveries / activeVehicles) * 100 : 0;
 
     return {
       activeDeliveries,
       completedToday,
       activeVehicles,
-      averageDeliveryTime,
-      onTimePercentage,
-      totalRevenue,
+      averageDeliveryTime: Math.round(avgDeliveryTime),
+      onTimePercentage: Math.round(onTimePercentage),
+      totalRevenue: Math.round(totalRevenue),
       pendingAlerts,
-      routeEfficiency,
+      routeEfficiency: Math.round(routeEfficiency),
     };
   }
-
-  private seedData() {
-    // Odisha and nearby regions (Rourkela, Bondamunda, Sambalpur, Bhubaneswar, Cuttack, Dhenkanal, Patna)
-    const odishaCoords = [
-      { lat: 22.2369, lng: 84.8549, city: "Rourkela" }, // Center
-      { lat: 22.1, lng: 84.7, city: "Bondamunda" },
-      { lat: 21.5, lng: 84.0, city: "Sambalpur" },
-      { lat: 20.2, lng: 85.8, city: "Bhubaneswar" },
-      { lat: 20.5, lng: 85.9, city: "Cuttack" },
-      { lat: 20.9, lng: 85.6, city: "Dhenkanal" },
-      { lat: 25.5, lng: 85.1, city: "Patna" },
-      { lat: 22.5, lng: 84.6, city: "Sundargarh" },
-    ];
-
-    const vehicleIds: string[] = [];
-    const driverNames = [
-      "Raj Kumar", "Priya Singh", "Arjun Patel", "Neha Sharma", "Vikram Das",
-      "Anil Kumar", "Divya Mishra", "Suresh Rao", "Anjali Nair", "Rohan Desai",
-      "Mohan Singh", "Rekha Das", "Bhavesh Patel", "Sneha Verma", "Aditya Kumar"
-    ];
-    
-    for (let i = 0; i < 15; i++) {
-      const coord = odishaCoords[i % odishaCoords.length];
-      const isActive = i < 12; // 12 vehicles in-transit, 3 idle
-      const vehicle: Vehicle = {
-        id: randomUUID(),
-        vehicleNumber: `VH-${1001 + i}`,
-        driverName: driverNames[i],
-        driverId: null,
-        status: isActive ? "in-transit" : "idle",
-        latitude: coord.lat + (Math.random() - 0.5) * 0.1,
-        longitude: coord.lng + (Math.random() - 0.5) * 0.1,
-        speed: isActive ? 35 + Math.random() * 30 : 0,
-        fuelLevel: 40 + Math.random() * 55,
-        temperature: 32 + Math.random() * 8,
-        currentRouteId: null,
-        routeCompletion: isActive ? Math.random() * 85 : 0,
-        lastUpdate: new Date(),
-      };
-      this.vehicles.set(vehicle.id, vehicle);
-      vehicleIds.push(vehicle.id);
-    }
-
-    const customerNames = [
-      "Odisha Trading Corp", "Rourkela Industries", "Eastern Retail Ltd", "Bhubaneswar Foods",
-      "Cuttack Supplies", "Sambalpur Logistics", "Patna Warehouse", "Dhenkanal Distribution",
-      "Jharkhand Markets", "Steel City Goods", "Eastern Express", "Regional Delivery Co",
-      "Sunrise Enterprises", "Modern Logistics", "Swift Couriers", "Express Delivery Services",
-      "Metro Trading", "Valley Supply Chain", "Urban Logistics Hub", "Quick Transport",
-      "National Supplies", "City Distributors", "Rapid Services", "Global Freight",
-      "Prime Delivery", "Star Logistics", "Direct Shipping", "Fast Track Delivery",
-      "Premium Distribution", "Ultimate Logistics"
-    ];
-    
-    for (let i = 0; i < 30; i++) {
-      const pickupCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
-      const deliveryCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
-      
-      // Create mix: pending (18), delivered (8), delayed (2), delayed (2)
-      // This gives plenty of pending deliveries to optimize routes for
-      let status: "pending" | "in-transit" | "delivered" | "delayed";
-      if (i < 18) status = "pending";
-      else if (i < 26) status = "delivered";
-      else status = "delayed";
-      
-      // ONLY assign vehicles to delivered items (historical data)
-      // Pending deliveries will be assigned when user clicks "Optimize Routes"
-      const vehicleId = status === "delivered" 
-        ? vehicleIds[i % vehicleIds.length] 
-        : null;
-      
-      // For delivered items, set actual delivery time to recent time today
-      const actualDeliveryTime = status === "delivered" 
-        ? new Date(Date.now() - (Math.random() * 10 * 3600000)) 
-        : null;
-      
-      const delivery: Delivery = {
-        id: randomUUID(),
-        orderId: `ORD-${10000 + i}`,
-        status,
-        customerId: randomUUID(),
-        customerName: customerNames[i % customerNames.length],
-        pickupAddress: `${1000 + i * 50} ${pickupCoord.city} Market, Odisha`,
-        pickupLat: pickupCoord.lat + (Math.random() - 0.5) * 0.05,
-        pickupLng: pickupCoord.lng + (Math.random() - 0.5) * 0.05,
-        deliveryAddress: `${2000 + i * 50} ${deliveryCoord.city} Main Road, Odisha`,
-        deliveryLat: deliveryCoord.lat + (Math.random() - 0.5) * 0.05,
-        deliveryLng: deliveryCoord.lng + (Math.random() - 0.5) * 0.05,
-        vehicleId,
-        routeId: null,
-        scheduledTime: new Date(Date.now() + (i - 15) * 3600000),
-        estimatedDeliveryTime: new Date(Date.now() + (i - 10) * 3600000),
-        actualDeliveryTime,
-        priority: i % 3 === 0 ? "high" : (i % 5 === 0 ? "low" : "normal"),
-        packageWeight: 5 + Math.random() * 45,
-        createdAt: new Date(Date.now() - (i * 3600000)),
-      };
-      this.deliveries.set(delivery.id, delivery);
-    }
-
-    // No pre-created routes - routes are generated fresh when user clicks "Optimize Routes"
-    // This ensures clean data with only Odisha coordinates
-
-    const alertMessages = [
-      { severity: "critical", type: "fuel", message: "Vehicle VH-1004 fuel level critically low (15%)" },
-      { severity: "warning", type: "delay", message: "Delivery ORD-10007 is running 15 minutes behind schedule" },
-      { severity: "info", type: "completed", message: "Route A completed successfully" },
-      { severity: "warning", type: "traffic", message: "Heavy traffic detected on Route B" },
-      { severity: "critical", type: "maintenance", message: "Vehicle VH-1002 requires immediate maintenance" },
-      { severity: "info", type: "new_delivery", message: "New delivery order ORD-10008 assigned" },
-    ];
-
-    alertMessages.forEach((alertData, i) => {
-      const alert: Alert = {
-        id: randomUUID(),
-        type: alertData.type,
-        severity: alertData.severity,
-        message: alertData.message,
-        vehicleId: i < 3 ? vehicleIds[i % vehicleIds.length] : null,
-        deliveryId: null,
-        routeId: null,
-        isRead: i > 3,
-        metadata: null,
-        createdAt: new Date(Date.now() - i * 600000),
-      };
-      this.alerts.set(alert.id, alert);
-    });
-
-    vehicleIds.forEach((vehicleId, i) => {
-      const vehicle = this.vehicles.get(vehicleId);
-      if (!vehicle) return;
-
-      const sensorData: IotSensorData = {
-        id: randomUUID(),
-        deviceId: `SENSOR-${1000 + i}`,
-        vehicleId: vehicleId,
-        latitude: vehicle.latitude,
-        longitude: vehicle.longitude,
-        speed: vehicle.speed,
-        fuelLevel: vehicle.fuelLevel,
-        temperature: vehicle.temperature ?? 72,
-        engineStatus: vehicle.status === "in-transit" ? "running" : "idle",
-        connectionStatus: "connected",
-        timestamp: new Date(),
-      };
-      this.iotSensorData.set(sensorData.id, sensorData);
-    });
-  }
 }
 
-let storage: IStorage = new MemStorage();
+let mongoClient: MongoClient | null = null;
+export let storage: IStorage;
 
-async function initializeStorage(): Promise<IStorage> {
-  if (process.env.DATABASE_URL) {
+export async function initializeStorage(): Promise<void> {
+  const mongoUri = process.env.MONGODB_URI;
+
+  if (mongoUri) {
     try {
-      const db = drizzle(process.env.DATABASE_URL);
+      mongoClient = new MongoClient(mongoUri);
+      await mongoClient.connect();
+      const db = mongoClient.db("smart_delivery");
       storage = new DbStorage(db);
       await (storage as DbStorage).seedIfEmpty();
-      return storage;
+      console.log("Connected to MongoDB");
     } catch (error) {
-      console.error("Failed to initialize database storage, falling back to in-memory:", error);
+      console.error("MongoDB connection failed, falling back to in-memory storage:", error);
       storage = new MemStorage();
     }
+  } else {
+    storage = new MemStorage();
   }
-  return storage;
 }
-
-export { initializeStorage, storage };
