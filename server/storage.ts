@@ -36,6 +36,7 @@ export interface IStorage {
   getDelivery(id: string): Promise<Delivery | undefined>;
   createDelivery(delivery: InsertDelivery): Promise<Delivery>;
   updateDelivery(id: string, delivery: Partial<Delivery>): Promise<Delivery | undefined>;
+  deleteDelivery(id: string): Promise<void>;
   
   getRoutes(): Promise<Route[]>;
   getRoute(id: string): Promise<Route | undefined>;
@@ -186,6 +187,10 @@ export class DbStorage implements IStorage {
       { returnDocument: "after" }
     );
     return result.value;
+  }
+
+  async deleteDelivery(id: string): Promise<void> {
+    await this.deliveriesCollection.deleteOne({ _id: id });
   }
 
   async getRoutes(): Promise<Route[]> {
@@ -476,6 +481,11 @@ export class MemStorage implements IStorage {
     if (!delivery) return undefined;
     Object.assign(delivery, update);
     return delivery;
+  }
+
+  async deleteDelivery(id: string): Promise<void> {
+    const idx = this.deliveries.findIndex(d => d._id === id);
+    if (idx !== -1) this.deliveries.splice(idx, 1);
   }
 
   async getRoutes(): Promise<Route[]> {

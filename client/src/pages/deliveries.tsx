@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,18 +19,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Package, Search, Filter, Plus, MapPin, Clock } from "lucide-react";
+import { Package, Search, Filter, Plus, MapPin, Clock, Trash2 } from "lucide-react";
 import type { Delivery } from "@shared/schema";
 import { useState } from "react";
 import { formatIST } from "@/lib/format-time";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DeliveriesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [newDeliveryOpen, setNewDeliveryOpen] = useState(false);
+  const { toast } = useToast();
 
   const { data: deliveries, isLoading } = useQuery<Delivery[]>({
     queryKey: ["/api/deliveries"],
+  });
+
+  const deleteDeliveryMutation = useMutation({
+    mutationFn: async (deliveryId: string) => {
+      const response = await apiRequest("DELETE", `/api/deliveries/${deliveryId}`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deliveries"] });
+      toast({ title: "Delivery deleted successfully" });
+    },
+    onError: (error: any) => {
+      console.error("Delete error:", error);
+      toast({ title: "Failed to delete delivery", variant: "destructive" });
+    },
   });
 
   const getStatusVariant = (status: string) => {
@@ -137,15 +155,16 @@ export default function DeliveriesPage() {
                     <TableHead>Priority</TableHead>
                     <TableHead>Scheduled</TableHead>
                     <TableHead>ETA</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredDeliveries && filteredDeliveries.length > 0 ? (
                     filteredDeliveries.map((delivery) => (
                       <TableRow
-                        key={delivery.id}
+                        key={delivery._id}
                         className="hover-elevate"
-                        data-testid={`delivery-row-${delivery.id}`}
+                        data-testid={`delivery-row-${delivery._id}`}
                       >
                         <TableCell className="font-mono font-medium">
                           {delivery.orderId}
@@ -183,11 +202,23 @@ export default function DeliveriesPage() {
                             ? formatIST(delivery.estimatedDeliveryTime)
                             : "-"}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteDeliveryMutation.mutate(delivery._id)}
+                            disabled={deleteDeliveryMutation.isPending}
+                            data-testid={`button-delete-delivery-${delivery._id}`}
+                            className="h-6 w-6"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
+                      <TableCell colSpan={9} className="text-center py-12">
                         <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                         <p className="text-muted-foreground">No deliveries found</p>
                       </TableCell>

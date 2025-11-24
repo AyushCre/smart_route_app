@@ -63,16 +63,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           for (const d of assignedDeliveries) {
-            await storage.updateDelivery(d.id, {
+            await storage.updateDelivery(d._id, {
               status: "in-transit",
               vehicleId: vehicle._id,
-              routeId: route.id,
+              routeId: route._id,
             });
           }
 
           await storage.updateVehicle(vehicle._id, {
             status: "in-transit",
-            currentRouteId: route.id,
+            currentRouteId: route._id,
             routeCompletion: 0,
           });
 
@@ -302,16 +302,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
 
               for (const d of assignedDeliveries) {
-                await storage.updateDelivery(d.id, {
+                await storage.updateDelivery(d._id, {
                   status: "in-transit",
                   vehicleId: vehicle._id,
-                  routeId: route.id,
+                  routeId: route._id,
                 });
               }
 
               await storage.updateVehicle(vehicle._id, {
                 status: "in-transit",
-                currentRouteId: route.id,
+                currentRouteId: route._id,
                 routeCompletion: 0,
               });
 
@@ -344,6 +344,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(delivery);
     } catch (error) {
       res.status(500).json({ error: "Failed to update delivery" });
+    }
+  });
+
+  app.delete("/api/deliveries/:id", async (req, res) => {
+    try {
+      await storage.deleteDelivery(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete delivery" });
     }
   });
 
@@ -534,17 +543,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Update deliveries with route assignment
         for (const delivery of assignedDeliveries) {
-          await storage.updateDelivery(delivery.id, {
+          await storage.updateDelivery(delivery._id, {
             status: "in-transit",
             vehicleId: vehicle._id,
-            routeId: route.id,
+            routeId: route._id,
           });
         }
 
         // Update vehicle status
         await storage.updateVehicle(vehicle._id, {
           status: "in-transit",
-          currentRouteId: route.id,
+          currentRouteId: route._id,
           routeCompletion: 0,
         });
 
