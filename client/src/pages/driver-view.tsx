@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation, Phone, AlertCircle, CheckCircle2 } from "lucide-react";
+import { formatIST } from "@/lib/format-time";
 
 interface Vehicle {
   id: string;
@@ -265,7 +266,7 @@ export default function DriverView() {
                 {gpsCoords.latitude.toFixed(6)}, {gpsCoords.longitude.toFixed(6)}
               </div>
               <p className="text-xs text-muted-foreground">
-                Last updated: {new Date(gpsCoords.timestamp).toLocaleTimeString()}
+                Last updated: {formatIST(new Date(gpsCoords.timestamp))}
               </p>
             </div>
           </CardContent>

@@ -22,6 +22,7 @@ import {
 import { Package, Search, Filter, Plus, MapPin, Clock } from "lucide-react";
 import type { Delivery } from "@shared/schema";
 import { useState } from "react";
+import { formatIST } from "@/lib/format-time";
 
 export default function DeliveriesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -174,12 +175,12 @@ export default function DeliveriesPage() {
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {delivery.scheduledTime
-                            ? new Date(delivery.scheduledTime).toLocaleDateString()
+                            ? formatIST(delivery.scheduledTime)
                             : "-"}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {delivery.estimatedDeliveryTime
-                            ? new Date(delivery.estimatedDeliveryTime).toLocaleTimeString()
+                            ? formatIST(delivery.estimatedDeliveryTime)
                             : "-"}
                         </TableCell>
                       </TableRow>

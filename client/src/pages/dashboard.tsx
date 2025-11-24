@@ -16,6 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type { DashboardMetrics, Alert, Vehicle } from "@shared/schema";
+import { formatIST } from "@/lib/format-time";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -180,7 +181,7 @@ export default function Dashboard() {
                             {alert.severity}
                           </Badge>
                           <span className="text-xs text-muted-foreground font-mono">
-                            {new Date(alert.createdAt).toLocaleTimeString()}
+                            {formatIST(alert.createdAt)}
                           </span>
                         </div>
                       </div>

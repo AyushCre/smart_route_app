@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { AddVehicleDialog } from "@/components/dialogs/add-vehicle-dialog";
 import { Truck, Fuel, Gauge, MapPin, Activity } from "lucide-react";
 import type { Vehicle } from "@shared/schema";
+import { formatIST } from "@/lib/format-time";
 
 export default function VehiclesPage() {
   const [addVehicleOpen, setAddVehicleOpen] = useState(false);
@@ -149,7 +150,7 @@ export default function VehiclesPage() {
                       {vehicle.latitude.toFixed(6)}, {vehicle.longitude.toFixed(6)}
                     </p>
                     <p className="text-xs text-muted-foreground font-mono">
-                      Last update: {new Date(vehicle.lastUpdate).toLocaleTimeString()}
+                      Last update: {formatIST(vehicle.lastUpdate)}
                     </p>
                   </div>
                 </CardContent>

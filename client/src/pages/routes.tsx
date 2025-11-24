@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Route as RouteIcon, Plus, Zap, Navigation, Clock, DollarSign, TrendingUp } from "lucide-react";
 import type { Route } from "@shared/schema";
+import { formatIST } from "@/lib/format-time";
 
 export default function RoutesPage() {
   const [optimizeOpen, setOptimizeOpen] = useState(false);
@@ -192,7 +193,7 @@ export default function RoutesPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="font-mono text-xs">
-                                {new Date(route.createdAt).toLocaleDateString()}
+                                {formatIST(route.createdAt)}
                               </TableCell>
                             </TableRow>
                           );

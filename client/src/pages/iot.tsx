@@ -35,6 +35,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type { IotSensorData } from "@shared/schema";
+import { formatIST } from "@/lib/format-time";
 
 export default function IoTPage() {
   const { toast } = useToast();
@@ -346,7 +347,7 @@ export default function IoTPage() {
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-xs">
-                            {new Date(sensor.timestamp).toLocaleTimeString()}
+                            {formatIST(sensor.timestamp)}
                           </TableCell>
                         </TableRow>
                       );
@@ -415,7 +416,7 @@ export default function IoTPage() {
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">Last Update</p>
-                    <p className="font-medium">{new Date(selectedSensor.timestamp).toLocaleString()}</p>
+                    <p className="font-medium">{formatIST(selectedSensor.timestamp)}</p>
                   </div>
                 </div>
 
