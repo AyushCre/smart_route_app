@@ -81,10 +81,20 @@ export default function MapPage() {
       return apiRequest("POST", "/api/routes/optimize-all", {});
     },
     onSuccess: (data: any) => {
-      toast({
-        title: "Success",
-        description: `${data.deliveriesAssigned} deliveries assigned to ${data.routes.length} routes!`,
-      });
+      const routes = data?.routes || [];
+      const assigned = data?.deliveriesAssigned || 0;
+      
+      if (routes.length === 0 && assigned === 0) {
+        toast({
+          title: "No Pending Deliveries",
+          description: "All deliveries are already assigned to routes.",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `${assigned} deliveries assigned to ${routes.length} routes!`,
+        });
+      }
       // Refresh all data immediately after optimization
       setTimeout(() => {
         refetchRoutes();
