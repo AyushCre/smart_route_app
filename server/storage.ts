@@ -595,69 +595,91 @@ export class MemStorage implements IStorage {
     ];
 
     const vehicleIds: string[] = [];
-    for (let i = 0; i < 5; i++) {
-      const coord = odishaCoords[i];
+    const driverNames = [
+      "Raj Kumar", "Priya Singh", "Arjun Patel", "Neha Sharma", "Vikram Das",
+      "Anil Kumar", "Divya Mishra", "Suresh Rao", "Anjali Nair", "Rohan Desai",
+      "Mohan Singh", "Rekha Das", "Bhavesh Patel", "Sneha Verma", "Aditya Kumar"
+    ];
+    
+    for (let i = 0; i < 15; i++) {
+      const coord = odishaCoords[i % odishaCoords.length];
+      const isActive = i < 12; // 12 vehicles in-transit, 3 idle
       const vehicle: Vehicle = {
         id: randomUUID(),
         vehicleNumber: `VH-${1001 + i}`,
-        driverName: ["Raj Kumar", "Priya Singh", "Arjun Patel", "Neha Sharma", "Vikram Das"][i],
+        driverName: driverNames[i],
         driverId: null,
-        status: ["in-transit", "in-transit", "idle", "in-transit", "idle"][i],
+        status: isActive ? "in-transit" : "idle",
         latitude: coord.lat + (Math.random() - 0.5) * 0.1,
         longitude: coord.lng + (Math.random() - 0.5) * 0.1,
-        speed: [45, 38, 0, 52, 0][i],
-        fuelLevel: [78, 92, 65, 45, 88][i],
+        speed: isActive ? 35 + Math.random() * 30 : 0,
+        fuelLevel: 40 + Math.random() * 55,
         temperature: 32 + Math.random() * 8,
         currentRouteId: null,
-        routeCompletion: [65, 42, 0, 78, 0][i],
+        routeCompletion: isActive ? Math.random() * 85 : 0,
         lastUpdate: new Date(),
       };
       this.vehicles.set(vehicle.id, vehicle);
       vehicleIds.push(vehicle.id);
     }
 
-    for (let i = 0; i < 12; i++) {
+    const customerNames = [
+      "Odisha Trading Corp", "Rourkela Industries", "Eastern Retail Ltd", "Bhubaneswar Foods",
+      "Cuttack Supplies", "Sambalpur Logistics", "Patna Warehouse", "Dhenkanal Distribution",
+      "Jharkhand Markets", "Steel City Goods", "Eastern Express", "Regional Delivery Co",
+      "Sunrise Enterprises", "Modern Logistics", "Swift Couriers", "Express Delivery Services",
+      "Metro Trading", "Valley Supply Chain", "Urban Logistics Hub", "Quick Transport",
+      "National Supplies", "City Distributors", "Rapid Services", "Global Freight",
+      "Prime Delivery", "Star Logistics", "Direct Shipping", "Fast Track Delivery",
+      "Premium Distribution", "Ultimate Logistics"
+    ];
+    
+    for (let i = 0; i < 30; i++) {
       const pickupCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
       const deliveryCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
+      
+      // Create mix: pending (8), in-transit (12), delivered (8), delayed (2)
+      let status: "pending" | "in-transit" | "delivered" | "delayed";
+      if (i < 8) status = "pending";
+      else if (i < 20) status = "in-transit";
+      else if (i < 28) status = "delivered";
+      else status = "delayed";
+      
+      // Assign vehicles to in-transit and delivered deliveries
+      const vehicleId = (status === "in-transit" || status === "delivered") 
+        ? vehicleIds[i % vehicleIds.length] 
+        : null;
+      
+      // For delivered items, set actual delivery time to recent time today
+      const actualDeliveryTime = status === "delivered" 
+        ? new Date(Date.now() - (Math.random() * 10 * 3600000)) 
+        : null;
       
       const delivery: Delivery = {
         id: randomUUID(),
         orderId: `ORD-${10000 + i}`,
-        status: ["pending", "in-transit", "in-transit", "delivered", "in-transit", "pending", "delivered", "delayed", "pending", "pending", "in-transit", "pending"][i],
+        status,
         customerId: randomUUID(),
-        customerName: [
-          "Odisha Trading Corp",
-          "Rourkela Industries",
-          "Eastern Retail Ltd",
-          "Bhubaneswar Foods",
-          "Cuttack Supplies",
-          "Sambalpur Logistics",
-          "Patna Warehouse",
-          "Dhenkanal Distribution",
-          "Jharkhand Markets",
-          "Steel City Goods",
-          "Eastern Express",
-          "Regional Delivery Co",
-        ][i],
+        customerName: customerNames[i % customerNames.length],
         pickupAddress: `${1000 + i * 50} ${pickupCoord.city} Market, Odisha`,
         pickupLat: pickupCoord.lat + (Math.random() - 0.5) * 0.05,
         pickupLng: pickupCoord.lng + (Math.random() - 0.5) * 0.05,
         deliveryAddress: `${2000 + i * 50} ${deliveryCoord.city} Main Road, Odisha`,
         deliveryLat: deliveryCoord.lat + (Math.random() - 0.5) * 0.05,
         deliveryLng: deliveryCoord.lng + (Math.random() - 0.5) * 0.05,
-        vehicleId: i < 5 ? vehicleIds[i % vehicleIds.length] : null,
+        vehicleId,
         routeId: null,
-        scheduledTime: new Date(Date.now() + (i - 6) * 3600000),
-        estimatedDeliveryTime: new Date(Date.now() + (i - 4) * 3600000),
-        actualDeliveryTime: i === 3 || i === 6 ? new Date() : null,
-        priority: ["normal", "high", "normal", "normal", "high", "normal", "low", "normal", "high", "normal", "normal", "normal"][i],
+        scheduledTime: new Date(Date.now() + (i - 15) * 3600000),
+        estimatedDeliveryTime: new Date(Date.now() + (i - 10) * 3600000),
+        actualDeliveryTime,
+        priority: i % 3 === 0 ? "high" : (i % 5 === 0 ? "low" : "normal"),
         packageWeight: 5 + Math.random() * 45,
-        createdAt: new Date(Date.now() - i * 86400000),
+        createdAt: new Date(Date.now() - (i * 3600000)),
       };
       this.deliveries.set(delivery.id, delivery);
     }
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 10; i++) {
       const waypoints = [];
       const pathCoords = [];
       const numWaypoints = 3 + Math.floor(Math.random() * 4);
@@ -675,21 +697,26 @@ export class MemStorage implements IStorage {
         ]);
       }
 
+      let status: "active" | "planned" | "completed";
+      if (i < 8) status = "active";
+      else if (i === 8) status = "planned";
+      else status = "completed";
+
       const route: Route = {
         id: randomUUID(),
         name: `Route-${odishaCoords[i % odishaCoords.length].city}-${String.fromCharCode(65 + i)}`,
-        vehicleId: i < vehicleIds.length ? vehicleIds[i] : null,
-        status: ["active", "active", "planned", "completed"][i],
-        algorithm: ["dijkstra", "astar", "dijkstra", "astar"][i],
+        vehicleId: i < vehicleIds.length ? vehicleIds[i % vehicleIds.length] : null,
+        status,
+        algorithm: i % 2 === 0 ? "dijkstra" : "astar",
         totalDistance: 40 + Math.random() * 60,
         estimatedDuration: 5400 + Math.random() * 5400,
         estimatedCost: 200 + Math.random() * 300,
-        actualCost: i === 3 ? 220 + Math.random() * 250 : null,
+        actualCost: status === "completed" ? 220 + Math.random() * 250 : null,
         waypoints: JSON.stringify(waypoints),
         pathCoordinates: JSON.stringify(pathCoords),
-        createdAt: new Date(Date.now() - i * 86400000),
-        startedAt: i < 2 ? new Date(Date.now() - 3600000) : null,
-        completedAt: i === 3 ? new Date() : null,
+        createdAt: new Date(Date.now() - i * 3600000),
+        startedAt: status !== "planned" ? new Date(Date.now() - (i + 1) * 3600000) : null,
+        completedAt: status === "completed" ? new Date(Date.now() - (i - 9) * 3600000) : null,
       };
       this.routes.set(route.id, route);
     }
