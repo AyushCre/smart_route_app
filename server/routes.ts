@@ -682,92 +682,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Track vehicle progress along routes
   const vehicleProgress: Map<string, number> = new Map();
 
+  // Global vehicle update loop - broadcast to ALL connected clients
+  const sendVehicleUpdatesToAll = async () => {
+    const vehicles = await storage.getVehicles();
+    
+    for (const vehicle of vehicles) {
+      if (vehicle.status === "in-transit" && vehicle.currentRouteId) {
+        const route = await storage.getRoute(vehicle.currentRouteId);
+        if (!route) continue;
+
+        try {
+          const pathCoordinates = JSON.parse(route.pathCoordinates) as [number, number][];
+          if (pathCoordinates.length < 2) continue;
+
+          // Get current progress (0-1)
+          let progress = vehicleProgress.get(vehicle._id) || 0;
+          const stepSize = 0.05; // Move 5% along the route per update
+          progress = Math.min(1, progress + stepSize);
+          vehicleProgress.set(vehicle._id, progress);
+
+          // Calculate current position along path using linear interpolation
+          const totalPoints = pathCoordinates.length;
+          const currentSegmentIndex = Math.floor(progress * (totalPoints - 1));
+          const nextSegmentIndex = Math.min(currentSegmentIndex + 1, totalPoints - 1);
+          const segmentProgress = (progress * (totalPoints - 1)) - currentSegmentIndex;
+
+          const [currentLat, currentLng] = pathCoordinates[currentSegmentIndex];
+          const [nextLat, nextLng] = pathCoordinates[nextSegmentIndex];
+
+          const newLat = currentLat + (nextLat - currentLat) * segmentProgress;
+          const newLng = currentLng + (nextLng - currentLng) * segmentProgress;
+
+          // Calculate speed based on progress
+          const speed = progress < 0.9 ? 45 : 0;
+          const routeCompletion = progress * 100;
+
+          // Mark route as completed when done (but NOT deliveries - they complete separately)
+          let newStatus = "in-transit";
+          if (progress >= 1) {
+            newStatus = "idle";
+            vehicleProgress.delete(vehicle._id);
+            
+            // Update route status
+            await storage.updateRoute(vehicle.currentRouteId, { status: "completed" });
+            
+            // NOTE: Deliveries are NOT auto-completed when route completes
+            // They transition to "delivered" only when manually marked in the system
+            // Routes are just the planned paths, deliveries are the actual delivery events
+          }
+
+          await storage.updateVehicle(vehicle._id, {
+            latitude: newLat,
+            longitude: newLng,
+            speed: speed,
+            status: newStatus,
+            routeCompletion: routeCompletion,
+            fuelLevel: Math.max(0, vehicle.fuelLevel - Math.random() * 0.3),
+          });
+
+          const updatedVehicle = await storage.getVehicle(vehicle._id);
+          if (updatedVehicle) {
+            // Broadcast to ALL connected clients
+            wss.clients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(
+                  JSON.stringify({
+                    type: "vehicle_update",
+                    data: updatedVehicle,
+                  })
+                );
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Error updating vehicle position:", err);
+        }
+      }
+    }
+  };
+
+  // Start global vehicle update loop every 3 seconds
+  setInterval(sendVehicleUpdatesToAll, 3000);
+
   wss.on("connection", (ws: WebSocket) => {
     console.log("WebSocket client connected");
 
-    const sendVehicleUpdates = async () => {
-      const vehicles = await storage.getVehicles();
-      
-      for (const vehicle of vehicles) {
-        if (vehicle.status === "in-transit" && vehicle.currentRouteId) {
-          const route = await storage.getRoute(vehicle.currentRouteId);
-          if (!route) continue;
-
-          try {
-            const pathCoordinates = JSON.parse(route.pathCoordinates) as [number, number][];
-            if (pathCoordinates.length < 2) continue;
-
-            // Get current progress (0-1)
-            let progress = vehicleProgress.get(vehicle._id) || 0;
-            const stepSize = 0.05; // Move 5% along the route per update
-            progress = Math.min(1, progress + stepSize);
-            vehicleProgress.set(vehicle._id, progress);
-
-            // Calculate current position along path using linear interpolation
-            const totalPoints = pathCoordinates.length;
-            const currentSegmentIndex = Math.floor(progress * (totalPoints - 1));
-            const nextSegmentIndex = Math.min(currentSegmentIndex + 1, totalPoints - 1);
-            const segmentProgress = (progress * (totalPoints - 1)) - currentSegmentIndex;
-
-            const [currentLat, currentLng] = pathCoordinates[currentSegmentIndex];
-            const [nextLat, nextLng] = pathCoordinates[nextSegmentIndex];
-
-            const newLat = currentLat + (nextLat - currentLat) * segmentProgress;
-            const newLng = currentLng + (nextLng - currentLng) * segmentProgress;
-
-            // Calculate speed based on progress
-            const speed = progress < 0.9 ? 45 : 0;
-            const routeCompletion = progress * 100;
-
-            // Mark route as completed when done (but NOT deliveries - they complete separately)
-            let newStatus = "in-transit";
-            if (progress >= 1) {
-              newStatus = "idle";
-              vehicleProgress.delete(vehicle._id);
-              
-              // Update route status
-              await storage.updateRoute(vehicle.currentRouteId, { status: "completed" });
-              
-              // NOTE: Deliveries are NOT auto-completed when route completes
-              // They transition to "delivered" only when manually marked in the system
-              // Routes are just the planned paths, deliveries are the actual delivery events
-            }
-
-            await storage.updateVehicle(vehicle._id, {
-              latitude: newLat,
-              longitude: newLng,
-              speed: speed,
-              status: newStatus,
-              routeCompletion: routeCompletion,
-              fuelLevel: Math.max(0, vehicle.fuelLevel - Math.random() * 0.3),
-            });
-
-            const updatedVehicle = await storage.getVehicle(vehicle._id);
-            if (updatedVehicle && ws.readyState === WebSocket.OPEN) {
-              ws.send(
-                JSON.stringify({
-                  type: "vehicle_update",
-                  data: updatedVehicle,
-                })
-              );
-            }
-          } catch (err) {
-            console.error("Error updating vehicle position:", err);
-          }
-        }
-      }
-    };
-
-    const updateInterval = setInterval(sendVehicleUpdates, 3000);
-
     ws.on("close", () => {
       console.log("WebSocket client disconnected");
-      clearInterval(updateInterval);
     });
 
     ws.on("error", (error) => {
       console.error("WebSocket error:", error);
-      clearInterval(updateInterval);
     });
   });
 
