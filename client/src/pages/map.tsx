@@ -127,8 +127,8 @@ export default function MapPage() {
   };
 
   return (
-    <div className="h-full flex flex-col" data-testid="page-map">
-      <div className="flex items-center justify-between mb-4">
+    <div className="h-full w-full flex flex-col" data-testid="page-map">
+      <div className="flex items-center justify-between p-4 border-b bg-background">
         <div>
           <h1 className="text-2xl font-semibold">Live Map</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -187,7 +187,7 @@ export default function MapPage() {
         </div>
       </div>
 
-      <div className="flex-1 relative rounded-md overflow-hidden border">
+      <div className="flex-1 relative w-full h-full overflow-hidden">
         <MapContainer
           center={mapCenter}
           zoom={12}
