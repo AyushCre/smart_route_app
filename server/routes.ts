@@ -370,7 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create the route
         const route = await storage.createRoute({
           name: `Route-${vehicle.vehicleNumber}-${Date.now()}`,
-          vehicleId: vehicle.id,
+          vehicleId: vehicle._id,
           algorithm: "dijkstra",
           status: "active",
           totalDistance: optimization.totalDistance,
@@ -384,13 +384,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const delivery of assignedDeliveries) {
           await storage.updateDelivery(delivery.id, {
             status: "in-transit",
-            vehicleId: vehicle.id,
+            vehicleId: vehicle._id,
             routeId: route.id,
           });
         }
 
         // Update vehicle status
-        await storage.updateVehicle(vehicle.id, {
+        await storage.updateVehicle(vehicle._id, {
           status: "in-transit",
           currentRouteId: route.id,
           routeCompletion: 0,
@@ -535,10 +535,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (pathCoordinates.length < 2) continue;
 
             // Get current progress (0-1)
-            let progress = vehicleProgress.get(vehicle.id) || 0;
+            let progress = vehicleProgress.get(vehicle._id) || 0;
             const stepSize = 0.05; // Move 5% along the route per update
             progress = Math.min(1, progress + stepSize);
-            vehicleProgress.set(vehicle.id, progress);
+            vehicleProgress.set(vehicle._id, progress);
 
             // Calculate current position along path using linear interpolation
             const totalPoints = pathCoordinates.length;
@@ -560,7 +560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let newStatus = "in-transit";
             if (progress >= 1) {
               newStatus = "idle";
-              vehicleProgress.delete(vehicle.id);
+              vehicleProgress.delete(vehicle._id);
               
               // Update route status
               await storage.updateRoute(vehicle.currentRouteId, { status: "completed" });
@@ -570,7 +570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Routes are just the planned paths, deliveries are the actual delivery events
             }
 
-            await storage.updateVehicle(vehicle.id, {
+            await storage.updateVehicle(vehicle._id, {
               latitude: newLat,
               longitude: newLng,
               speed: speed,
@@ -579,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               fuelLevel: Math.max(0, vehicle.fuelLevel - Math.random() * 0.3),
             });
 
-            const updatedVehicle = await storage.getVehicle(vehicle.id);
+            const updatedVehicle = await storage.getVehicle(vehicle._id);
             if (updatedVehicle && ws.readyState === WebSocket.OPEN) {
               ws.send(
                 JSON.stringify({
