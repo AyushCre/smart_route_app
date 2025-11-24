@@ -13,6 +13,79 @@ import {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await initializeStorage();
+
+  // Auto-optimize routes on startup to start vehicle movement immediately
+  setTimeout(async () => {
+    try {
+      const deliveries = await storage.getDeliveries();
+      const vehicles = await storage.getVehicles();
+      const pendingDeliveries = deliveries.filter((d) => d.status === "pending");
+
+      if (pendingDeliveries.length > 0 && vehicles.length > 0) {
+        console.log(`Starting up: Optimizing ${pendingDeliveries.length} pending deliveries with ${vehicles.length} vehicles...`);
+        
+        const createdRoutes = [];
+
+        for (let i = 0; i < vehicles.length && i < pendingDeliveries.length; i++) {
+          const vehicle = vehicles[i];
+          const batchSize = Math.ceil(pendingDeliveries.length / vehicles.length);
+          const start = i * batchSize;
+          const end = Math.min(start + batchSize, pendingDeliveries.length);
+          const assignedDeliveries = pendingDeliveries.slice(start, end);
+
+          if (assignedDeliveries.length === 0) continue;
+
+          const waypoints: Coordinate[] = [
+            {
+              lat: vehicle.latitude,
+              lng: vehicle.longitude,
+              address: `Vehicle Start (${vehicle.vehicleNumber})`,
+            },
+            ...assignedDeliveries.map((d) => ({
+              lat: d.deliveryLat,
+              lng: d.deliveryLng,
+              address: d.deliveryAddress,
+            })),
+          ];
+
+          const optimization = optimizeRoute(waypoints, "dijkstra");
+
+          const route = await storage.createRoute({
+            name: `Route-${vehicle.vehicleNumber}-${Date.now()}`,
+            vehicleId: vehicle._id,
+            algorithm: "dijkstra",
+            status: "active",
+            totalDistance: optimization.totalDistance,
+            estimatedDuration: optimization.estimatedDuration,
+            estimatedCost: optimization.totalDistance * 0.5,
+            waypoints: JSON.stringify(waypoints),
+            pathCoordinates: JSON.stringify(optimization.coordinates),
+          });
+
+          for (const d of assignedDeliveries) {
+            await storage.updateDelivery(d.id, {
+              status: "in-transit",
+              vehicleId: vehicle._id,
+              routeId: route.id,
+            });
+          }
+
+          await storage.updateVehicle(vehicle._id, {
+            status: "in-transit",
+            currentRouteId: route.id,
+            routeCompletion: 0,
+          });
+
+          createdRoutes.push(route);
+        }
+
+        console.log(`Startup: Created ${createdRoutes.length} routes. Vehicles will start moving!`);
+      }
+    } catch (err) {
+      console.error("Startup auto-optimization error:", err);
+    }
+  }, 500);
+
   app.get("/api/metrics", async (_req, res) => {
     try {
       const metrics = await storage.getDashboardMetrics();
@@ -181,6 +254,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scheduledTime: delivery.scheduledTime,
         estimatedDeliveryTime: delivery.estimatedDeliveryTime
       });
+      
+      // Auto-optimize routes to make vehicles move immediately
+      setTimeout(async () => {
+        try {
+          const deliveries = await storage.getDeliveries();
+          const vehicles = await storage.getVehicles();
+          const pendingDeliveries = deliveries.filter((d) => d.status === "pending");
+
+          if (pendingDeliveries.length > 0 && vehicles.length > 0) {
+            const createdRoutes = [];
+
+            for (let i = 0; i < vehicles.length && i < pendingDeliveries.length; i++) {
+              const vehicle = vehicles[i];
+              const batchSize = Math.ceil(pendingDeliveries.length / vehicles.length);
+              const start = i * batchSize;
+              const end = Math.min(start + batchSize, pendingDeliveries.length);
+              const assignedDeliveries = pendingDeliveries.slice(start, end);
+
+              if (assignedDeliveries.length === 0) continue;
+
+              const waypoints: Coordinate[] = [
+                {
+                  lat: vehicle.latitude,
+                  lng: vehicle.longitude,
+                  address: `Vehicle Start (${vehicle.vehicleNumber})`,
+                },
+                ...assignedDeliveries.map((d) => ({
+                  lat: d.deliveryLat,
+                  lng: d.deliveryLng,
+                  address: d.deliveryAddress,
+                })),
+              ];
+
+              const optimization = optimizeRoute(waypoints, "dijkstra");
+
+              const route = await storage.createRoute({
+                name: `Route-${vehicle.vehicleNumber}-${Date.now()}`,
+                vehicleId: vehicle._id,
+                algorithm: "dijkstra",
+                status: "active",
+                totalDistance: optimization.totalDistance,
+                estimatedDuration: optimization.estimatedDuration,
+                estimatedCost: optimization.totalDistance * 0.5,
+                waypoints: JSON.stringify(waypoints),
+                pathCoordinates: JSON.stringify(optimization.coordinates),
+              });
+
+              for (const d of assignedDeliveries) {
+                await storage.updateDelivery(d.id, {
+                  status: "in-transit",
+                  vehicleId: vehicle._id,
+                  routeId: route.id,
+                });
+              }
+
+              await storage.updateVehicle(vehicle._id, {
+                status: "in-transit",
+                currentRouteId: route.id,
+                routeCompletion: 0,
+              });
+
+              createdRoutes.push(route);
+            }
+
+            console.log(`Auto-optimized ${createdRoutes.length} routes after delivery creation`);
+          }
+        } catch (err) {
+          console.error("Auto-optimization error:", err);
+        }
+      }, 100);
       
       res.status(201).json(delivery);
     } catch (error: any) {
