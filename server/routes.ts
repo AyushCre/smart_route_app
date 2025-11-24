@@ -151,10 +151,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const delivery = await storage.createDelivery(validatedData);
       res.status(201).json(delivery);
     } catch (error: any) {
+      console.error("Delivery creation error details:", error);
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid delivery data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create delivery" });
+      res.status(500).json({ error: "Failed to create delivery", details: error.message });
     }
   });
 

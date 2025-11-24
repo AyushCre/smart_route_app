@@ -29,7 +29,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { randomUUID } from "crypto";
 
 interface NewDeliveryDialogProps {
   open: boolean;
@@ -45,13 +44,15 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
       customerName: "",
       customerId: `CUST-${Date.now()}`,
       pickupAddress: "",
-      pickupLat: 37.7749,
-      pickupLng: -122.4194,
+      pickupLat: 22.2369, // Rourkela, Odisha
+      pickupLng: 84.8549,
       deliveryAddress: "",
-      deliveryLat: 37.8044,
-      deliveryLng: -122.2712,
+      deliveryLat: 20.2, // Bhubaneswar, Odisha
+      deliveryLng: 85.8,
       status: "pending",
       priority: "normal",
+      scheduledTime: new Date(),
+      estimatedDeliveryTime: new Date(Date.now() + 24 * 3600000),
     },
   });
 
@@ -70,9 +71,14 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
     },
     onError: (error: any) => {
       console.error("Delivery creation error:", error);
+      const errorMsg = error?.response?.data?.details 
+        ? JSON.stringify(error.response.data.details)
+        : error?.response?.data?.error
+        ? error.response.data.error
+        : error.message || "Failed to create delivery. Please try again.";
       toast({
         title: "Error",
-        description: error.message || "Failed to create delivery. Please try again.",
+        description: errorMsg,
         variant: "destructive",
       });
     },
@@ -149,6 +155,62 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
             <div className="p-3 bg-muted rounded text-sm text-muted-foreground">
               <p>GPS coordinates are automatically assigned based on the address. Latitude/Longitude help pinpoint exact locations for map display and route optimization.</p>
             </div>
+
+            <FormField
+              control={form.control}
+              name="pickupLat"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pickup Latitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" placeholder="22.2369 (Rourkela)" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : "")} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="pickupLng"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pickup Longitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" placeholder="84.8549 (Rourkela)" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : "")} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="deliveryLat"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Latitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" placeholder="20.2 (Bhubaneswar)" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : "")} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="deliveryLng"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Longitude</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.0001" placeholder="85.8 (Bhubaneswar)" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : "")} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
