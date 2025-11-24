@@ -8,28 +8,41 @@ export function formatIST(date: Date | string | null | undefined, includeTime = 
   const dateObj = typeof date === "string" ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return "-";
   
-  // Convert to IST (UTC+5:30)
-  const istDate = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000) - (dateObj.getTimezoneOffset() * 60 * 1000));
+  // Convert to IST using Intl API for accurate timezone handling
+  const istFormatter = new Intl.DateTimeFormat("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+
+  if (!includeTime) {
+    const parts = istFormatter.formatToParts(dateObj);
+    const date = parts.find((p) => p.type === "day")?.value || "";
+    const month = parts.find((p) => p.type === "month")?.value || "";
+    const year = parts.find((p) => p.type === "year")?.value || "";
+    return `${date} ${month} ${year}`;
+  }
+
+  // Format: "24 Nov 2025 08:30:45 AM"
+  const formatted = istFormatter.format(dateObj);
+  // The format from Intl is: "24/11/2025, 08:30:45 am"
+  // We need to convert it to: "24 Nov 2025 08:30:45 AM"
   
-  // Format: "24 Nov 2025"
-  const day = istDate.getUTCDate().toString().padStart(2, "0");
-  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
-    istDate.getUTCMonth()
-  ];
-  const year = istDate.getUTCFullYear();
-  const dateStr = `${day} ${month} ${year}`;
-  
-  if (!includeTime) return dateStr;
-  
-  // Format: "08:30:45 AM"
-  const hours = istDate.getUTCHours();
-  const minutes = istDate.getUTCMinutes().toString().padStart(2, "0");
-  const seconds = istDate.getUTCSeconds().toString().padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const displayHours = (hours % 12 || 12).toString().padStart(2, "0");
-  const timeStr = `${displayHours}:${minutes}:${seconds} ${ampm}`;
-  
-  return `${dateStr} ${timeStr}`;
+  const parts = istFormatter.formatToParts(dateObj);
+  const day = parts.find((p) => p.type === "day")?.value || "";
+  const month = parts.find((p) => p.type === "month")?.value || "";
+  const year = parts.find((p) => p.type === "year")?.value || "";
+  const hour = parts.find((p) => p.type === "hour")?.value || "";
+  const minute = parts.find((p) => p.type === "minute")?.value || "";
+  const second = parts.find((p) => p.type === "second")?.value || "";
+  const ampm = parts.find((p) => p.type === "dayPeriod")?.value?.toUpperCase() || "";
+
+  return `${day} ${month} ${year} ${hour}:${minute}:${second} ${ampm}`;
 }
 
 /**
@@ -42,16 +55,21 @@ export function formatISTTime(date: Date | string | null | undefined): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return "-";
   
-  // Convert to IST (UTC+5:30)
-  const istDate = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000) - (dateObj.getTimezoneOffset() * 60 * 1000));
-  
-  const hours = istDate.getUTCHours();
-  const minutes = istDate.getUTCMinutes().toString().padStart(2, "0");
-  const seconds = istDate.getUTCSeconds().toString().padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const displayHours = (hours % 12 || 12).toString().padStart(2, "0");
-  
-  return `${displayHours}:${minutes}:${seconds} ${ampm}`;
+  const istFormatter = new Intl.DateTimeFormat("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+
+  const parts = istFormatter.formatToParts(dateObj);
+  const hour = parts.find((p) => p.type === "hour")?.value || "";
+  const minute = parts.find((p) => p.type === "minute")?.value || "";
+  const second = parts.find((p) => p.type === "second")?.value || "";
+  const ampm = parts.find((p) => p.type === "dayPeriod")?.value?.toUpperCase() || "";
+
+  return `${hour}:${minute}:${second} ${ampm}`;
 }
 
 /**
@@ -64,14 +82,17 @@ export function formatISTDate(date: Date | string | null | undefined): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return "-";
   
-  // Convert to IST (UTC+5:30)
-  const istDate = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000) - (dateObj.getTimezoneOffset() * 60 * 1000));
-  
-  const day = istDate.getUTCDate().toString().padStart(2, "0");
-  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
-    istDate.getUTCMonth()
-  ];
-  const year = istDate.getUTCFullYear();
-  
+  const istFormatter = new Intl.DateTimeFormat("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+
+  const parts = istFormatter.formatToParts(dateObj);
+  const day = parts.find((p) => p.type === "day")?.value || "";
+  const month = parts.find((p) => p.type === "month")?.value || "";
+  const year = parts.find((p) => p.type === "year")?.value || "";
+
   return `${day} ${month} ${year}`;
 }
