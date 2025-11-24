@@ -37,12 +37,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auto-optimize routes on startup to start vehicle movement immediately
   setTimeout(async () => {
     try {
-      const deliveries = await storage.getDeliveries();
       const vehicles = await storage.getVehicles();
-      const pendingDeliveries = deliveries.filter((d) => d.status === "pending");
+      let deliveries = await storage.getDeliveries();
+      let pendingDeliveries = deliveries.filter((d) => d.status === "pending" || d.status === "in-transit");
+
+      // If no active deliveries, generate new ones for demo
+      if (pendingDeliveries.length === 0) {
+        console.log("[Startup] No active deliveries. Generating demo batch...");
+        const odishaCities = [
+          { name: "Bhubaneswar", lat: 20.2961, lng: 85.8245 },
+          { name: "Rourkela", lat: 22.2089, lng: 84.8733 },
+          { name: "Cuttack", lat: 20.4625, lng: 85.883 },
+          { name: "Balasore", lat: 21.4979, lng: 86.9271 },
+          { name: "Jharsuguda", lat: 21.8445, lng: 84.0189 },
+        ];
+        
+        for (let i = 0; i < 10; i++) {
+          const pickup = odishaCities[Math.floor(Math.random() * odishaCities.length)];
+          const delivery = odishaCities[Math.floor(Math.random() * odishaCities.length)];
+          
+          const newDelivery = await storage.createDelivery({
+            orderId: `ORD-${Date.now()}-${i}`,
+            status: "pending",
+            customerId: `CUST-${i}`,
+            customerName: `Customer ${i + 1}`,
+            pickupAddress: pickup.name,
+            pickupLat: pickup.lat,
+            pickupLng: pickup.lng,
+            deliveryAddress: delivery.name,
+            deliveryLat: delivery.lat,
+            deliveryLng: delivery.lng,
+            priority: "normal",
+          });
+          pendingDeliveries.push(newDelivery);
+        }
+        console.log("[Startup] Generated 10 new deliveries");
+      }
 
       if (pendingDeliveries.length > 0 && vehicles.length > 0) {
-        console.log(`Starting up: Optimizing ${pendingDeliveries.length} pending deliveries with ${vehicles.length} vehicles...`);
+        console.log(`Starting up: Optimizing ${pendingDeliveries.length} active deliveries with ${vehicles.length} vehicles...`);
         
         const createdRoutes = [];
 
@@ -768,6 +801,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 actualDeliveryTime: new Date(),
               });
               console.log(`[Delivery Complete] ${delivery.orderId} delivered`);
+            }
+            
+            // Check if all deliveries are now completed - if so, restart demo cycle
+            const allDeliveries = await storage.getDeliveries();
+            const pendingCount = allDeliveries.filter(d => d.status === "pending" || d.status === "in-transit").length;
+            
+            if (pendingCount === 0) {
+              console.log("[Demo Cycle] All deliveries completed! Restarting cycle in 3 seconds...");
+              setTimeout(async () => {
+                try {
+                  // Generate new sample deliveries
+                  const odishaCities = [
+                    { name: "Bhubaneswar", lat: 20.2961, lng: 85.8245 },
+                    { name: "Rourkela", lat: 22.2089, lng: 84.8733 },
+                    { name: "Cuttack", lat: 20.4625, lng: 85.883 },
+                    { name: "Balasore", lat: 21.4979, lng: 86.9271 },
+                    { name: "Jharsuguda", lat: 21.8445, lng: 84.0189 },
+                  ];
+                  
+                  const newDeliveries = [];
+                  for (let i = 0; i < 10; i++) {
+                    const pickup = odishaCities[Math.floor(Math.random() * odishaCities.length)];
+                    const delivery = odishaCities[Math.floor(Math.random() * odishaCities.length)];
+                    
+                    const newDelivery = await storage.createDelivery({
+                      orderId: `ORD-${Date.now()}-${i}`,
+                      status: "pending",
+                      customerId: `CUST-${i}`,
+                      customerName: `Customer ${i + 1}`,
+                      pickupAddress: pickup.name,
+                      pickupLat: pickup.lat,
+                      pickupLng: pickup.lng,
+                      deliveryAddress: delivery.name,
+                      deliveryLat: delivery.lat,
+                      deliveryLng: delivery.lng,
+                      priority: "normal",
+                    });
+                    newDeliveries.push(newDelivery);
+                  }
+                  
+                  // Reassign to vehicles
+                  const vehicles = await storage.getVehicles();
+                  for (let i = 0; i < vehicles.length && i < newDeliveries.length; i++) {
+                    const vehicle = vehicles[i];
+                    const batchSize = Math.ceil(newDeliveries.length / vehicles.length);
+                    const start = i * batchSize;
+                    const end = Math.min(start + batchSize, newDeliveries.length);
+                    const assignedDeliveries = newDeliveries.slice(start, end);
+                    
+                    if (assignedDeliveries.length === 0) continue;
+                    
+                    const waypoints = [
+                      { lat: vehicle.latitude, lng: vehicle.longitude, address: `Vehicle Start` },
+                      ...assignedDeliveries.map((d) => ({
+                        lat: d.deliveryLat,
+                        lng: d.deliveryLng,
+                        address: d.deliveryAddress,
+                      })),
+                    ];
+                    
+                    const optimization = optimizeRoute(waypoints, "dijkstra");
+                    const route = await storage.createRoute({
+                      name: `Route-${vehicle.vehicleNumber}-${Date.now()}`,
+                      vehicleId: vehicle._id,
+                      algorithm: "dijkstra",
+                      status: "active",
+                      totalDistance: optimization.totalDistance,
+                      estimatedDuration: optimization.estimatedDuration,
+                      estimatedCost: optimization.totalDistance * 0.5,
+                      waypoints: JSON.stringify(waypoints),
+                      pathCoordinates: JSON.stringify(optimization.coordinates),
+                    });
+                    
+                    for (const d of assignedDeliveries) {
+                      await storage.updateDelivery(d._id, {
+                        status: "in-transit",
+                        vehicleId: vehicle._id,
+                        routeId: route._id,
+                      });
+                    }
+                    
+                    resetVehicleProgress(vehicle._id);
+                    await storage.updateVehicle(vehicle._id, {
+                      status: "in-transit",
+                      currentRouteId: route._id,
+                      routeCompletion: 0,
+                    });
+                  }
+                  
+                  console.log("[Demo Cycle] Restarted! New deliveries assigned to vehicles.");
+                } catch (err) {
+                  console.error("[Demo Cycle] Error restarting cycle:", err);
+                }
+              }, 3000);
             }
           }
 
