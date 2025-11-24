@@ -233,11 +233,12 @@ export class DbStorage implements IStorage {
     const allVehicles = await this.db.select().from(vehicles);
     const allAlerts = await this.db.select().from(alerts);
 
+    // Active = pending or in-transit, NOT completed (which is different from delivered)
     const activeDeliveries = allDeliveries.filter((d: any) => d.status === "in-transit" || d.status === "pending").length;
     const completedToday = allDeliveries.filter((d: any) => {
       const created = new Date(d.createdAt);
       const now = new Date();
-      return d.status === "delivered" && created.toDateString() === now.toDateString();
+      return (d.status === "delivered" || d.status === "completed") && created.toDateString() === now.toDateString();
     }).length;
     const activeVehicles = allVehicles.filter((v: any) => v.status === "in-transit").length;
 

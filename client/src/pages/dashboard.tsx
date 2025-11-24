@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { MetricsCard } from "@/components/metrics-card";
@@ -18,17 +19,53 @@ import type { DashboardMetrics, Alert, Vehicle } from "@shared/schema";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { data: metrics, isLoading: metricsLoading } = useQuery<DashboardMetrics>({
+  
+  // REAL-TIME UPDATES: Refetch every 1 second for live dashboard
+  const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery<DashboardMetrics>({
     queryKey: ["/api/metrics"],
+    refetchInterval: 1000, // Refetch every 1 second for real-time updates
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Never cache - always fresh
   });
 
-  const { data: recentAlerts, isLoading: alertsLoading } = useQuery<Alert[]>({
+  const { data: recentAlerts, isLoading: alertsLoading, refetch: refetchAlerts } = useQuery<Alert[]>({
     queryKey: ["/api/alerts", "recent"],
+    refetchInterval: 2000, // Refetch every 2 seconds
+    staleTime: 0,
   });
 
-  const { data: activeVehicles, isLoading: vehiclesLoading } = useQuery<Vehicle[]>({
+  const { data: activeVehicles, isLoading: vehiclesLoading, refetch: refetchVehicles } = useQuery<Vehicle[]>({
     queryKey: ["/api/vehicles", "active"],
+    refetchInterval: 1500, // Refetch every 1.5 seconds
+    staleTime: 0,
   });
+  
+  // Listen to WebSocket for instant updates
+  useEffect(() => {
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
+    
+    ws.onopen = () => console.log("Dashboard WebSocket connected");
+    
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      
+      // Refetch on any vehicle/delivery update
+      if (message.type === "vehicle_update" || message.type === "delivery_update") {
+        refetchMetrics();
+        refetchVehicles();
+        refetchAlerts();
+      }
+    };
+    
+    ws.onerror = (err) => console.error("Dashboard WebSocket error:", err);
+    
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, [refetchMetrics, refetchVehicles, refetchAlerts]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {

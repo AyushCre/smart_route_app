@@ -147,8 +147,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/deliveries", async (req, res) => {
     try {
-      const validatedData = insertDeliverySchema.parse(req.body);
+      let data = { ...req.body };
+      
+      // Set default dates if not provided or empty
+      const now = Date.now();
+      if (!data.scheduledTime || data.scheduledTime === "") {
+        data.scheduledTime = new Date(now + 3600000); // 1 hour from now
+      }
+      if (!data.estimatedDeliveryTime || data.estimatedDeliveryTime === "") {
+        data.estimatedDeliveryTime = new Date(now + 7200000); // 2 hours from now
+      }
+      
+      console.log("Creating delivery with dates:", { 
+        scheduledTime: data.scheduledTime, 
+        estimatedDeliveryTime: data.estimatedDeliveryTime 
+      });
+      
+      const validatedData = insertDeliverySchema.parse(data);
       const delivery = await storage.createDelivery(validatedData);
+      
+      console.log("Delivery created successfully:", { 
+        orderId: delivery.orderId, 
+        status: delivery.status,
+        scheduledTime: delivery.scheduledTime,
+        estimatedDeliveryTime: delivery.estimatedDeliveryTime
+      });
+      
       res.status(201).json(delivery);
     } catch (error: any) {
       console.error("Delivery creation error details:", error);
@@ -532,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const speed = progress < 0.9 ? 45 : 0;
             const routeCompletion = progress * 100;
 
-            // Mark route/deliveries as completed when done
+            // Mark route as completed when done (but NOT deliveries - they complete separately)
             let newStatus = "in-transit";
             if (progress >= 1) {
               newStatus = "idle";
@@ -541,13 +565,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Update route status
               await storage.updateRoute(vehicle.currentRouteId, { status: "completed" });
               
-              // Update deliveries as completed
-              const deliveries = await storage.getDeliveries();
-              for (const delivery of deliveries) {
-                if (delivery.routeId === vehicle.currentRouteId) {
-                  await storage.updateDelivery(delivery.id, { status: "completed" });
-                }
-              }
+              // NOTE: Deliveries are NOT auto-completed when route completes
+              // They transition to "delivered" only when manually marked in the system
+              // Routes are just the planned paths, deliveries are the actual delivery events
             }
 
             await storage.updateVehicle(vehicle.id, {
