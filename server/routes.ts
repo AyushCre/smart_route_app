@@ -11,6 +11,25 @@ import {
   insertIotSensorDataSchema,
 } from "@shared/schema";
 
+// Track vehicle progress - declared here so it persists across requests
+const vehicleProgress: Map<string, number> = new Map();
+const routeSpeeds: Map<string, number> = new Map();
+
+// Helper to reset progress when assigning new routes
+const resetVehicleProgress = (vehicleId: string) => {
+  vehicleProgress.delete(vehicleId);
+};
+
+// Helper to get/create speed for a destination
+const getSpeedForDestination = (destinationKey: string): number => {
+  if (routeSpeeds.has(destinationKey)) {
+    return routeSpeeds.get(destinationKey)!;
+  }
+  const speed = 30 + Math.random() * 30;
+  routeSpeeds.set(destinationKey, Math.round(speed));
+  return Math.round(speed);
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await initializeStorage();
 
@@ -69,6 +88,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               routeId: route._id,
             });
           }
+
+          // Reset vehicle progress when assigning new route
+          resetVehicleProgress(vehicle._id);
 
           await storage.updateVehicle(vehicle._id, {
             status: "in-transit",
@@ -550,6 +572,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        // Reset vehicle progress to 0 when assigning new route
+        resetVehicleProgress(vehicle._id);
+
         // Update vehicle status
         await storage.updateVehicle(vehicle._id, {
           status: "in-transit",
@@ -678,22 +703,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
-
-  // Track vehicle progress along routes
-  const vehicleProgress: Map<string, number> = new Map();
-  // Track speed per route (destination-based) - vehicles to same destination share same speed
-  const routeSpeeds: Map<string, number> = new Map();
-
-  // Generate unique speeds for different destinations (30-60 km/h)
-  const getSpeedForDestination = (destinationKey: string): number => {
-    if (routeSpeeds.has(destinationKey)) {
-      return routeSpeeds.get(destinationKey)!;
-    }
-    // Generate speed between 30-60 km/h
-    const speed = 30 + Math.random() * 30;
-    routeSpeeds.set(destinationKey, Math.round(speed));
-    return Math.round(speed);
-  };
 
   // Global vehicle update loop - broadcast to ALL connected clients
   const sendVehicleUpdatesToAll = async () => {
