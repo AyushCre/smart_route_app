@@ -211,9 +211,10 @@ export default function MapPage() {
 
           {vehicles?.map((vehicle) => (
             <Marker
-              key={vehicle.id}
+              key={vehicle._id}
               position={[vehicle.latitude, vehicle.longitude]}
               icon={vehicleIcon}
+              data-testid={`marker-vehicle-${vehicle._id}`}
             >
               <Popup>
                 <Card className="border-0 shadow-none">
@@ -253,7 +254,7 @@ export default function MapPage() {
           {deliveries?.map((delivery) => {
             // Show both pickup and delivery points
             return (
-              <div key={delivery.id}>
+              <div key={delivery._id}>
                 {/* Pickup point */}
                 <Marker
                   position={[delivery.pickupLat, delivery.pickupLng]}
@@ -305,7 +306,7 @@ export default function MapPage() {
               const coordinates = JSON.parse(route.pathCoordinates) as [number, number][];
               return (
                 <Polyline
-                  key={route.id}
+                  key={route._id}
                   positions={coordinates}
                   color="#2563eb"
                   weight={3}
