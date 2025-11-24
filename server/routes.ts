@@ -14,6 +14,7 @@ import {
 // Track vehicle progress - declared here so it persists across requests
 const vehicleProgress: Map<string, number> = new Map();
 const routeSpeeds: Map<string, number> = new Map();
+let lastLoggedCount = 0;
 
 // Helper to reset progress when assigning new routes
 const resetVehicleProgress = (vehicleId: string) => {
@@ -707,6 +708,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Global vehicle update loop - broadcast to ALL connected clients
   const sendVehicleUpdatesToAll = async () => {
     const vehicles = await storage.getVehicles();
+    const inTransitCount = vehicles.filter(v => v.status === "in-transit").length;
+    
+    if (inTransitCount > 0 && inTransitCount !== lastLoggedCount) {
+      console.log(`[Movement Loop] Found ${inTransitCount} vehicles in-transit, will move them`);
+      lastLoggedCount = inTransitCount;
+    }
     
     for (const vehicle of vehicles) {
       if (vehicle.status === "in-transit" && vehicle.currentRouteId) {

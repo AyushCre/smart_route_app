@@ -53,6 +53,54 @@ export default function MapPage() {
     refetchInterval: 5000,
   });
 
+  // Listen for WebSocket vehicle updates
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === "vehicle_update" && message.data) {
+            // Update the query cache with the new vehicle data
+            queryClient.setQueryData<Vehicle[]>(
+              ["/api/vehicles"],
+              (old) => {
+                if (!old) return [message.data];
+                return old.map((v) => 
+                  v._id === message.data._id ? message.data : v
+                );
+              }
+            );
+          }
+        } catch (err) {
+          console.error("Error processing WebSocket message:", err);
+        }
+      };
+      
+      ws.onerror = () => {
+        console.error("WebSocket error on map");
+      };
+      
+      ws.onclose = () => {
+        // Reconnect after 2 seconds
+        setTimeout(connectWebSocket, 2000);
+      };
+    };
+    
+    connectWebSocket();
+    
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, []);
+
   // Fit map to show all markers
   useEffect(() => {
     if (!mapRef.current || (vehicles.length === 0 && deliveries.length === 0)) return;
