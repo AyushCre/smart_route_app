@@ -73,11 +73,14 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
     return {};
   };
   
-  // Generate unique order ID with timestamp + random number
+  // Generate ultra-unique order ID using crypto randomness
   const generateUniqueId = (prefix: string) => {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000000);
-    return `${prefix}-${timestamp}-${random}`;
+    // Generate 12 random hex characters for maximum uniqueness
+    const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
+    return `${prefix}-${randomHex}`;
   };
   
   const form = useForm({
