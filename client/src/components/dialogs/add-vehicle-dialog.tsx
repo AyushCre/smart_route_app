@@ -49,8 +49,11 @@ export function AddVehicleDialog({ open, onOpenChange }: AddVehicleDialogProps) 
     mutationFn: async (data: typeof form.getValues) => {
       return apiRequest("POST", "/api/vehicles", data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+    onSuccess: async () => {
+      // Invalidate and immediately refetch all related queries
+      await queryClient.refetchQueries({ queryKey: ["/api/vehicles"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/metrics"] });
+      
       toast({
         title: "Success",
         description: "Vehicle added successfully!",

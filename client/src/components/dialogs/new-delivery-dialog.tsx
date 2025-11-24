@@ -121,6 +121,10 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
 
   const addDeliveryMutation = useMutation({
     mutationFn: async (data: any) => {
+      // Auto-detect city coordinates if not explicitly set
+      const pickupCoords = getCityCoordinates(data.pickupAddress);
+      const deliveryCoords = getCityCoordinates(data.deliveryAddress);
+      
       const cleanData = {
         ...data,
         pickupLat: parseFloat(data.pickupLat),
@@ -130,8 +134,11 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
       };
       return apiRequest("POST", "/api/deliveries", cleanData);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/deliveries"] });
+    onSuccess: async () => {
+      // Invalidate and immediately refetch all related queries
+      await queryClient.refetchQueries({ queryKey: ["/api/deliveries"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/metrics"] });
+      
       toast({
         title: "Success",
         description: "Delivery created successfully!",
