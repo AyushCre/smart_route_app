@@ -745,10 +745,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get speed based on route destination (same destination = same speed)
           const destinationKey = route._id; // Use route ID as destination key
           const routeSpeed = getSpeedForDestination(destinationKey);
-          const speed = progress < 0.9 ? routeSpeed : 0;
+          const speed = progress < 1 ? routeSpeed : 0; // Show speed until route is complete
           const routeCompletion = progress * 100;
 
-          // Mark route as completed when done (but NOT deliveries - they complete separately)
+          // Mark route as completed when done
           let newStatus = "in-transit";
           if (progress >= 1) {
             newStatus = "idle";
@@ -758,9 +758,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Update route status
             await storage.updateRoute(vehicle.currentRouteId, { status: "completed" });
             
-            // NOTE: Deliveries are NOT auto-completed when route completes
-            // They transition to "delivered" only when manually marked in the system
-            // Routes are just the planned paths, deliveries are the actual delivery events
+            // Auto-complete all deliveries on this route
+            const deliveries = await storage.getDeliveries();
+            const routeDeliveries = deliveries.filter(d => d.routeId === vehicle.currentRouteId);
+            
+            for (const delivery of routeDeliveries) {
+              await storage.updateDelivery(delivery._id, {
+                status: "delivered",
+                actualDeliveryTime: new Date(),
+              });
+              console.log(`[Delivery Complete] ${delivery.orderId} delivered`);
+            }
           }
 
           await storage.updateVehicle(vehicle._id, {
