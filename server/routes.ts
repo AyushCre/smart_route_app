@@ -681,6 +681,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Track vehicle progress along routes
   const vehicleProgress: Map<string, number> = new Map();
+  // Track speed per route (destination-based) - vehicles to same destination share same speed
+  const routeSpeeds: Map<string, number> = new Map();
+
+  // Generate unique speeds for different destinations (30-60 km/h)
+  const getSpeedForDestination = (destinationKey: string): number => {
+    if (routeSpeeds.has(destinationKey)) {
+      return routeSpeeds.get(destinationKey)!;
+    }
+    // Generate speed between 30-60 km/h
+    const speed = 30 + Math.random() * 30;
+    routeSpeeds.set(destinationKey, Math.round(speed));
+    return Math.round(speed);
+  };
 
   // Global vehicle update loop - broadcast to ALL connected clients
   const sendVehicleUpdatesToAll = async () => {
@@ -713,8 +726,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const newLat = currentLat + (nextLat - currentLat) * segmentProgress;
           const newLng = currentLng + (nextLng - currentLng) * segmentProgress;
 
-          // Calculate speed based on progress
-          const speed = progress < 0.9 ? 45 : 0;
+          // Get speed based on route destination (same destination = same speed)
+          const destinationKey = route._id; // Use route ID as destination key
+          const routeSpeed = getSpeedForDestination(destinationKey);
+          const speed = progress < 0.9 ? routeSpeed : 0;
           const routeCompletion = progress * 100;
 
           // Mark route as completed when done (but NOT deliveries - they complete separately)
@@ -722,6 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (progress >= 1) {
             newStatus = "idle";
             vehicleProgress.delete(vehicle._id);
+            routeSpeeds.delete(destinationKey); // Clean up speed for completed route
             
             // Update route status
             await storage.updateRoute(vehicle.currentRouteId, { status: "completed" });
