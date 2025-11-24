@@ -638,15 +638,16 @@ export class MemStorage implements IStorage {
       const pickupCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
       const deliveryCoord = odishaCoords[Math.floor(Math.random() * odishaCoords.length)];
       
-      // Create mix: pending (8), in-transit (12), delivered (8), delayed (2)
+      // Create mix: pending (18), delivered (8), delayed (2), delayed (2)
+      // This gives plenty of pending deliveries to optimize routes for
       let status: "pending" | "in-transit" | "delivered" | "delayed";
-      if (i < 8) status = "pending";
-      else if (i < 20) status = "in-transit";
-      else if (i < 28) status = "delivered";
+      if (i < 18) status = "pending";
+      else if (i < 26) status = "delivered";
       else status = "delayed";
       
-      // Assign vehicles to in-transit and delivered deliveries
-      const vehicleId = (status === "in-transit" || status === "delivered") 
+      // ONLY assign vehicles to delivered items (historical data)
+      // Pending deliveries will be assigned when user clicks "Optimize Routes"
+      const vehicleId = status === "delivered" 
         ? vehicleIds[i % vehicleIds.length] 
         : null;
       
