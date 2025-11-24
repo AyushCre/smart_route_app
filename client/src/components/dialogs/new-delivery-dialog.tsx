@@ -36,8 +36,42 @@ interface NewDeliveryDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Indian cities coordinates mapping for auto-detection
+const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  "gaya": { lat: 24.7955, lng: 84.9994 },
+  "patna": { lat: 25.5941, lng: 85.1376 },
+  "bhubaneswar": { lat: 20.2961, lng: 85.8245 },
+  "cuttack": { lat: 20.4625, lng: 85.8830 },
+  "rourkela": { lat: 22.2369, lng: 84.8549 },
+  "sambalpur": { lat: 21.4521, lng: 84.0032 },
+  "bondamunda": { lat: 22.1000, lng: 84.7000 },
+  "delhi": { lat: 28.7041, lng: 77.1025 },
+  "mumbai": { lat: 19.0760, lng: 72.8777 },
+  "bangalore": { lat: 12.9716, lng: 77.5946 },
+  "kolkata": { lat: 22.5726, lng: 88.3639 },
+  "pune": { lat: 18.5204, lng: 73.8567 },
+  "hyderabad": { lat: 17.3850, lng: 78.4867 },
+  "ahmedabad": { lat: 23.0225, lng: 72.5714 },
+  "jaipur": { lat: 26.9124, lng: 75.7873 },
+  "lucknow": { lat: 26.8467, lng: 80.9462 },
+  "chandigarh": { lat: 30.7333, lng: 76.7794 },
+  "indore": { lat: 22.7196, lng: 75.8577 },
+};
+
 export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps) {
   const { toast } = useToast();
+  
+  // Extract coordinates from city name
+  const getCityCoordinates = (address: string): { lat?: number; lng?: number } => {
+    if (!address) return {};
+    const cityName = address.toLowerCase().trim();
+    for (const [city, coords] of Object.entries(CITY_COORDINATES)) {
+      if (cityName.includes(city)) {
+        return coords;
+      }
+    }
+    return {};
+  };
   
   // Generate unique order ID with timestamp + random number
   const generateUniqueId = (prefix: string) => {
@@ -162,9 +196,20 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
               name="pickupAddress"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Pickup Address</FormLabel>
+                  <FormLabel>Pickup Address (e.g., "Gaya", "Patna", "Rourkela")</FormLabel>
                   <FormControl>
-                    <Input placeholder="123 Warehouse St" {...field} />
+                    <Input 
+                      placeholder="e.g., Gaya, Patna, Rourkela..." 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        const coords = getCityCoordinates(e.target.value);
+                        if (coords.lat !== undefined && coords.lng !== undefined) {
+                          form.setValue("pickupLat", coords.lat);
+                          form.setValue("pickupLng", coords.lng);
+                        }
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -176,9 +221,20 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
               name="deliveryAddress"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Delivery Address</FormLabel>
+                  <FormLabel>Delivery Address (e.g., "Gaya", "Patna", "Bhubaneswar")</FormLabel>
                   <FormControl>
-                    <Input placeholder="456 Customer Ave" {...field} />
+                    <Input 
+                      placeholder="e.g., Gaya, Patna, Bhubaneswar..." 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        const coords = getCityCoordinates(e.target.value);
+                        if (coords.lat !== undefined && coords.lng !== undefined) {
+                          form.setValue("deliveryLat", coords.lat);
+                          form.setValue("deliveryLng", coords.lng);
+                        }
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
