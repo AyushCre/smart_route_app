@@ -43,6 +43,7 @@ export default function DeliveriesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
       toast({ title: "Delivery deleted successfully" });
     },
     onError: (error: any) => {
