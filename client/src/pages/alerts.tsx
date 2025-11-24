@@ -27,14 +27,18 @@ export default function AlertsPage() {
     mutationFn: async (alertId: string) => {
       return apiRequest("DELETE", `/api/alerts/${alertId}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+    onSuccess: async () => {
+      // Refetch alerts after dismissal for immediate update
+      await queryClient.refetchQueries({ queryKey: ["/api/alerts"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/metrics"] });
+      
       toast({
         title: "Alert dismissed",
         description: "The alert has been removed.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Dismiss alert error:", error);
       toast({
         title: "Error",
         description: "Failed to dismiss alert. Please try again.",
@@ -47,15 +51,18 @@ export default function AlertsPage() {
     mutationFn: async () => {
       return apiRequest("PATCH", "/api/alerts/mark-all-read", {});
     },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+    onSuccess: async (data: any) => {
+      // Refetch alerts for immediate update
+      await queryClient.refetchQueries({ queryKey: ["/api/alerts"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/metrics"] });
+      
       toast({
         title: "Success",
         description: `${data.count} alerts marked as read.`,
       });
-      refetch();
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Mark all read error:", error);
       toast({
         title: "Error",
         description: "Failed to mark alerts as read.",
@@ -264,8 +271,8 @@ export default function AlertsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            data-testid={`button-dismiss-${alert.id}`}
-                            onClick={() => dismissMutation.mutate(alert.id)}
+                            data-testid={`button-dismiss-${alert._id}`}
+                            onClick={() => dismissMutation.mutate(alert._id)}
                             disabled={dismissMutation.isPending}
                           >
                             <BellOff className="h-4 w-4" />
@@ -290,7 +297,7 @@ export default function AlertsPage() {
                     const Icon = getSeverityIcon(alert.severity);
                     return (
                       <div
-                        key={alert.id}
+                        key={alert._id}
                         className={`flex items-start gap-4 rounded-md border p-4 ${getSeverityBg(
                           alert.severity
                         )}`}
@@ -321,7 +328,7 @@ export default function AlertsPage() {
                     const Icon = getSeverityIcon(alert.severity);
                     return (
                       <div
-                        key={alert.id}
+                        key={alert._id}
                         className={`flex items-start gap-4 rounded-md border p-4 ${getSeverityBg(
                           alert.severity
                         )}`}
@@ -352,7 +359,7 @@ export default function AlertsPage() {
                     const Icon = getSeverityIcon(alert.severity);
                     return (
                       <div
-                        key={alert.id}
+                        key={alert._id}
                         className={`flex items-start gap-4 rounded-md border p-4 ${getSeverityBg(
                           alert.severity
                         )}`}

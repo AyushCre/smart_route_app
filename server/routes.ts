@@ -466,12 +466,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/alerts/mark-all-read", async (_req, res) => {
     try {
       const alerts = await storage.getAlerts();
+      let count = 0;
       for (const alert of alerts) {
         if (!alert.isRead) {
-          await storage.markAlertAsRead(alert.id);
+          await storage.markAlertAsRead(alert._id);
+          count++;
         }
       }
-      res.json({ success: true, count: alerts.length });
+      res.json({ success: true, count });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark all alerts as read" });
     }
