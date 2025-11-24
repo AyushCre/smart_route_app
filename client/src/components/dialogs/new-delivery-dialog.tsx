@@ -42,8 +42,8 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
   // Generate unique order ID with timestamp + random number
   const generateUniqueId = (prefix: string) => {
     const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 100000);
-    return `${prefix}-${random}`;
+    const random = Math.floor(Math.random() * 1000000);
+    return `${prefix}-${timestamp}-${random}`;
   };
   
   const form = useForm({
