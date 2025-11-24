@@ -37,8 +37,8 @@ export function AddVehicleDialog({ open, onOpenChange }: AddVehicleDialogProps) 
       vehicleNumber: "",
       driverName: "",
       status: "idle",
-      latitude: 37.7749,
-      longitude: -122.4194,
+      latitude: 22.2369, // Rourkela, Odisha
+      longitude: 84.8549, // Rourkela, Odisha
       speed: 0,
       fuelLevel: 100,
       routeCompletion: 0,
