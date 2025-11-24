@@ -208,6 +208,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Diagnostic: Check optimization readiness (MUST be before :id route)
+  app.get("/api/routes/status", async (_req, res) => {
+    try {
+      const deliveries = await storage.getDeliveries();
+      const vehicles = await storage.getVehicles();
+      const routes = await storage.getRoutes();
+      
+      const pending = deliveries.filter(d => d.status === "pending").length;
+      const inTransit = deliveries.filter(d => d.status === "in-transit").length;
+      const delivered = deliveries.filter(d => d.status === "delivered").length;
+      
+      res.json({
+        deliveries: {
+          total: deliveries.length,
+          pending,
+          inTransit,
+          delivered,
+          other: deliveries.length - pending - inTransit - delivered,
+        },
+        vehicles: {
+          total: vehicles.length,
+          idle: vehicles.filter(v => v.status === "idle").length,
+          inTransit: vehicles.filter(v => v.status === "in-transit").length,
+        },
+        routes: routes.length,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get status" });
+    }
+  });
+
   app.get("/api/routes/:id", async (req, res) => {
     try {
       const route = await storage.getRoute(req.params.id);
@@ -276,8 +307,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vehicles = await storage.getVehicles();
       const pendingDeliveries = deliveries.filter((d) => d.status === "pending");
 
+      console.log(`Optimize request: ${deliveries.length} total deliveries, ${pendingDeliveries.length} pending, ${vehicles.length} vehicles`);
+
       if (pendingDeliveries.length === 0) {
-        return res.json({ message: "No pending deliveries", routes: [] });
+        console.log("No pending deliveries found");
+        return res.json({ message: "No pending deliveries", routes: [], deliveriesAssigned: 0 });
       }
 
       const createdRoutes = [];
@@ -341,6 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdRoutes.push(route);
       }
 
+      console.log(`Optimization complete: Created ${createdRoutes.length} routes for ${pendingDeliveries.length} deliveries`);
       res.json({
         message: "Routes optimized successfully",
         routes: createdRoutes,
@@ -348,7 +383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Route optimization error:", error);
-      res.status(500).json({ error: "Failed to optimize routes" });
+      res.status(500).json({ error: "Failed to optimize routes", details: error.message });
     }
   });
 

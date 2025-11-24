@@ -84,6 +84,8 @@ export default function MapPage() {
       const routes = data?.routes || [];
       const assigned = data?.deliveriesAssigned || 0;
       
+      console.log("Optimization result:", { routes, assigned });
+      
       if (routes.length === 0 && assigned === 0) {
         toast({
           title: "No Pending Deliveries",
@@ -95,17 +97,24 @@ export default function MapPage() {
           description: `${assigned} deliveries assigned to ${routes.length} routes!`,
         });
       }
-      // Refresh all data immediately after optimization
+      
+      // Invalidate cache and refetch immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deliveries"] });
+      
+      // Force refetch after cache invalidation
       setTimeout(() => {
         refetchRoutes();
         refetchVehicles();
         refetchDeliveries();
-      }, 500);
+      }, 100);
     },
     onError: (error: any) => {
+      console.error("Optimization error:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to optimize routes",
+        description: error?.response?.data?.error || error.message || "Failed to optimize routes",
         variant: "destructive",
       });
     },
