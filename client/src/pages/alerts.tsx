@@ -301,6 +301,7 @@ export default function AlertsPage() {
                         className={`flex items-start gap-4 rounded-md border p-4 ${getSeverityBg(
                           alert.severity
                         )}`}
+                        data-testid={`alert-item-${alert._id}`}
                       >
                         <Icon className={`h-5 w-5 mt-0.5 ${getSeverityColor(alert.severity)}`} />
                         <div className="flex-1 space-y-2">
@@ -309,6 +310,15 @@ export default function AlertsPage() {
                             {new Date(alert.createdAt).toLocaleString()}
                           </p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`button-dismiss-${alert._id}`}
+                          onClick={() => dismissMutation.mutate(alert._id)}
+                          disabled={dismissMutation.isPending}
+                        >
+                          <BellOff className="h-4 w-4" />
+                        </Button>
                       </div>
                     );
                   })
@@ -332,6 +342,7 @@ export default function AlertsPage() {
                         className={`flex items-start gap-4 rounded-md border p-4 ${getSeverityBg(
                           alert.severity
                         )}`}
+                        data-testid={`alert-item-${alert._id}`}
                       >
                         <Icon className={`h-5 w-5 mt-0.5 ${getSeverityColor(alert.severity)}`} />
                         <div className="flex-1 space-y-2">
@@ -340,6 +351,15 @@ export default function AlertsPage() {
                             {new Date(alert.createdAt).toLocaleString()}
                           </p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`button-dismiss-${alert._id}`}
+                          onClick={() => dismissMutation.mutate(alert._id)}
+                          disabled={dismissMutation.isPending}
+                        >
+                          <BellOff className="h-4 w-4" />
+                        </Button>
                       </div>
                     );
                   })
@@ -363,6 +383,7 @@ export default function AlertsPage() {
                         className={`flex items-start gap-4 rounded-md border p-4 ${getSeverityBg(
                           alert.severity
                         )}`}
+                        data-testid={`alert-item-${alert._id}`}
                       >
                         <Icon className={`h-5 w-5 mt-0.5 ${getSeverityColor(alert.severity)}`} />
                         <div className="flex-1 space-y-2">
@@ -371,6 +392,15 @@ export default function AlertsPage() {
                             {new Date(alert.createdAt).toLocaleString()}
                           </p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`button-dismiss-${alert._id}`}
+                          onClick={() => dismissMutation.mutate(alert._id)}
+                          disabled={dismissMutation.isPending}
+                        >
+                          <BellOff className="h-4 w-4" />
+                        </Button>
                       </div>
                     );
                   })
