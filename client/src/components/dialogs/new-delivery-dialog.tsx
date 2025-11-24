@@ -51,14 +51,19 @@ export function NewDeliveryDialog({ open, onOpenChange }: NewDeliveryDialogProps
       deliveryLng: 85.8,
       status: "pending",
       priority: "normal",
-      scheduledTime: new Date(),
-      estimatedDeliveryTime: new Date(Date.now() + 24 * 3600000),
     },
   });
 
   const addDeliveryMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/deliveries", data);
+      const cleanData = {
+        ...data,
+        pickupLat: parseFloat(data.pickupLat),
+        pickupLng: parseFloat(data.pickupLng),
+        deliveryLat: parseFloat(data.deliveryLat),
+        deliveryLng: parseFloat(data.deliveryLng),
+      };
+      return apiRequest("POST", "/api/deliveries", cleanData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/deliveries"] });
